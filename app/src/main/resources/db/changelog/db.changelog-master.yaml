@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: V1__init_schema
+      author: dealer-dev
+      changes:
+        - sqlFile:
+            path: db/changelog/sql/001-init_schema.sql
+            relativeToChangelogFile: false

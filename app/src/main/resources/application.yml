@@ -1,0 +1,87 @@
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/dealer}
+    username: ${DATABASE_USER:dealer}
+    password: ${DATABASE_PASSWORD:dealer}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      timeout: 2000ms
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:default-secret-key-that-must-be-changed-in-production-at-least-256-bits}
+    access-token-ttl: PT15M
+    refresh-token-ttl: P30D
+
+#ocr:
+#  provider: google-vision
+#  google:
+#    credentials-file: ${GOOGLE_APPLICATION_CREDENTIALS:}
+#
+#firebase:
+#  credentials-file: ${FIREBASE_CREDENTIALS_FILE:}
+#
+#storage:
+#  s3:
+#    bucket: ${S3_BUCKET:dealer-receipts}
+#    endpoint: ${S3_ENDPOINT:https://s3.amazonaws.com}
+#    access-key: ${S3_ACCESS_KEY:}
+#    secret-key: ${S3_SECRET_KEY:}
+#    region: ${S3_REGION:us-east-1}
+
+#management:
+#  endpoints:
+#    web:
+#      exposure:
+#        include: health,readiness,prometheus,info
+#  endpoint:
+#    health:
+#      show-details: always
+#    prometheus:
+#      enabled: true
+#  metrics:
+#    export:
+#      prometheus:
+#        enabled: true
+#  tracing:
+#    sampling:
+#      probability: 1.0
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.dealer: INFO
+    org.springframework.security: WARN
