@@ -22,11 +22,6 @@ class PlatformConverter : AttributeConverter<Platform, String> {
 @Entity
 @Table(name = "devices")
 class Device(
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", updatable = false, nullable = false)
-    val id: UUID = UUID.randomUUID(),
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     val user: User,
@@ -40,4 +35,9 @@ class Device(
 
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: OffsetDateTime = OffsetDateTime.now()
-)
+) {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false)
+    lateinit var id: UUID
+}

@@ -23,11 +23,6 @@ class TransactionStatusConverter : AttributeConverter<TransactionStatus, String>
 @Entity
 @Table(name = "transactions")
 class Transaction(
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", updatable = false, nullable = false)
-    val id: UUID = UUID.randomUUID(),
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bill_id", nullable = false)
     val bill: Bill,
@@ -52,4 +47,9 @@ class Transaction(
 
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: OffsetDateTime = OffsetDateTime.now()
-)
+) {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false)
+    lateinit var id: UUID
+}

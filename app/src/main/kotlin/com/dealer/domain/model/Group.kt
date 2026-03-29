@@ -7,11 +7,6 @@ import java.util.UUID
 @Entity
 @Table(name = "groups")
 class Group(
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", updatable = false, nullable = false)
-    val id: UUID = UUID.randomUUID(),
-
     @Column(name = "name", nullable = false, length = 100)
     var name: String,
 
@@ -26,13 +21,10 @@ class Group(
     var currency: String = "RUB",
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    val createdAt: OffsetDateTime = OffsetDateTime.now(),
-
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "group_members",
-        joinColumns = [JoinColumn(name = "group_id")],
-        inverseJoinColumns = [JoinColumn(name = "user_id")]
-    )
-    val members: MutableSet<User> = mutableSetOf()
-)
+    val createdAt: OffsetDateTime = OffsetDateTime.now()
+) {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false)
+    lateinit var id: UUID
+}

@@ -7,11 +7,6 @@ import java.util.UUID
 @Entity
 @Table(name = "bill_items")
 class BillItem(
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", updatable = false, nullable = false)
-    val id: UUID = UUID.randomUUID(),
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bill_id", nullable = false)
     val bill: Bill,
@@ -24,4 +19,9 @@ class BillItem(
 
     @Column(name = "quantity", nullable = false)
     var quantity: Int = 1
-)
+) {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false)
+    lateinit var id: UUID
+}

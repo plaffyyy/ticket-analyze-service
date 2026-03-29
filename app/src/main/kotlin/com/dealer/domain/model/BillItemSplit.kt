@@ -7,11 +7,6 @@ import java.util.UUID
 @Entity
 @Table(name = "bill_item_splits")
 class BillItemSplit(
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", updatable = false, nullable = false)
-    val id: UUID = UUID.randomUUID(),
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "item_id", nullable = false)
     val item: BillItem,
@@ -22,4 +17,9 @@ class BillItemSplit(
 
     @Column(name = "share_amount", nullable = false, precision = 12, scale = 2)
     var shareAmount: BigDecimal
-)
+) {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false)
+    lateinit var id: UUID
+}
