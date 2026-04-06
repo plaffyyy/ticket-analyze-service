@@ -10,15 +10,12 @@ class BillItem(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bill_id", nullable = false)
     val bill: Bill,
-
     @Column(name = "name", nullable = false, length = 255)
     var name: String,
-
     @Column(name = "price", nullable = false, precision = 12, scale = 2)
     var price: BigDecimal,
-
     @Column(name = "quantity", nullable = false)
-    var quantity: Int = 1
+    var quantity: Int = 1,
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

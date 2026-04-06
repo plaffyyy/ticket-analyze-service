@@ -10,13 +10,12 @@ import org.springframework.web.filter.OncePerRequestFilter
 
 @Component
 class JwtAuthenticationFilter(
-    private val jwtProvider: JwtProvider
+    private val jwtProvider: JwtProvider,
 ) : OncePerRequestFilter() {
-
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
-        filterChain: FilterChain
+        filterChain: FilterChain,
     ) {
         val token = extractToken(request)
         if (token != null && jwtProvider.validateToken(token)) {

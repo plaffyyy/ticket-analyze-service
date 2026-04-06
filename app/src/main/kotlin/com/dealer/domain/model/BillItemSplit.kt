@@ -10,13 +10,11 @@ class BillItemSplit(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "item_id", nullable = false)
     val item: BillItem,
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     val user: User,
-
     @Column(name = "share_amount", nullable = false, precision = 12, scale = 2)
-    var shareAmount: BigDecimal
+    var shareAmount: BigDecimal,
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

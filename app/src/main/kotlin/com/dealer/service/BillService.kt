@@ -36,27 +36,35 @@ class BillService(
     private val groupRepository: GroupRepository,
     private val groupMemberRepository: GroupMemberRepository,
     private val userRepository: UserRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
 ) {
-
     @Transactional
-    fun createBill(creatorId: UUID, request: CreateBillRequest): BillDto {
-        val group = groupRepository.findById(request.groupId)
-            .orElseThrow { NotFoundException("Group not found") }
+    fun createBill(
+        creatorId: UUID,
+        request: CreateBillRequest,
+    ): BillDto {
+        val group =
+            groupRepository
+                .findById(request.groupId)
+                .orElseThrow { NotFoundException("Group not found") }
         requireMember(request.groupId, creatorId)
         val creator = userRepository.findById(creatorId).orElseThrow { NotFoundException("User not found") }
-        val bill = Bill(
-            group = group,
-            createdBy = creator,
-            title = request.title.trim(),
-            currency = request.currency.trim().uppercase()
-        )
+        val bill =
+            Bill(
+                group = group,
+                createdBy = creator,
+                title = request.title.trim(),
+                currency = request.currency.trim().uppercase(),
+            )
         billRepository.save(bill)
         return toDto(bill, emptyList())
     }
 
     @Transactional(readOnly = true)
-    fun getBill(billId: UUID, requesterId: UUID): BillDto {
+    fun getBill(
+        billId: UUID,
+        requesterId: UUID,
+    ): BillDto {
         val bill = findBillOrThrow(billId)
         requireMember(bill.group.id, requesterId)
         val items = billItemRepository.findByBillId(billId)
@@ -64,7 +72,10 @@ class BillService(
     }
 
     @Transactional(readOnly = true)
-    fun getGroupBills(groupId: UUID, requesterId: UUID): List<BillDto> {
+    fun getGroupBills(
+        groupId: UUID,
+        requesterId: UUID,
+    ): List<BillDto> {
         requireMember(groupId, requesterId)
         return billRepository.findByGroupId(groupId).map { bill ->
             toDto(bill, billItemRepository.findByBillId(bill.id))
@@ -72,7 +83,11 @@ class BillService(
     }
 
     @Transactional
-    fun updateBill(billId: UUID, requesterId: UUID, request: UpdateBillRequest): BillDto {
+    fun updateBill(
+        billId: UUID,
+        requesterId: UUID,
+        request: UpdateBillRequest,
+    ): BillDto {
         val bill = findBillOrThrow(billId)
         requireMember(bill.group.id, requesterId)
         requireOpen(bill)
@@ -83,14 +98,21 @@ class BillService(
     }
 
     @Transactional
-    fun deleteBill(billId: UUID, requesterId: UUID) {
+    fun deleteBill(
+        billId: UUID,
+        requesterId: UUID,
+    ) {
         val bill = findBillOrThrow(billId)
         requireMember(bill.group.id, requesterId)
         billRepository.delete(bill)
     }
 
     @Transactional
-    fun addItem(billId: UUID, requesterId: UUID, request: AddBillItemRequest): BillItemDto {
+    fun addItem(
+        billId: UUID,
+        requesterId: UUID,
+        request: AddBillItemRequest,
+    ): BillItemDto {
         val bill = findBillOrThrow(billId)
         requireMember(bill.group.id, requesterId)
         requireOpen(bill)
@@ -101,7 +123,12 @@ class BillService(
     }
 
     @Transactional
-    fun updateItem(billId: UUID, itemId: UUID, requesterId: UUID, request: AddBillItemRequest): BillItemDto {
+    fun updateItem(
+        billId: UUID,
+        itemId: UUID,
+        requesterId: UUID,
+        request: AddBillItemRequest,
+    ): BillItemDto {
         val bill = findBillOrThrow(billId)
         requireMember(bill.group.id, requesterId)
         requireOpen(bill)
@@ -116,7 +143,11 @@ class BillService(
     }
 
     @Transactional
-    fun deleteItem(billId: UUID, itemId: UUID, requesterId: UUID) {
+    fun deleteItem(
+        billId: UUID,
+        itemId: UUID,
+        requesterId: UUID,
+    ) {
         val bill = findBillOrThrow(billId)
         requireMember(bill.group.id, requesterId)
         requireOpen(bill)
@@ -126,7 +157,11 @@ class BillService(
     }
 
     @Transactional
-    fun setSplits(billId: UUID, requesterId: UUID, request: BillSplitsRequest) {
+    fun setSplits(
+        billId: UUID,
+        requesterId: UUID,
+        request: BillSplitsRequest,
+    ) {
         val bill = findBillOrThrow(billId)
         requireMember(bill.group.id, requesterId)
         requireOpen(bill)
@@ -142,7 +177,10 @@ class BillService(
     }
 
     @Transactional
-    fun settleBill(billId: UUID, requesterId: UUID): BillDto {
+    fun settleBill(
+        billId: UUID,
+        requesterId: UUID,
+    ): BillDto {
         val bill = findBillOrThrow(billId)
         requireMember(bill.group.id, requesterId)
         if (bill.status == BillStatus.SETTLED) throw ConflictException("Bill already settled")
@@ -159,10 +197,12 @@ class BillService(
         return toDto(bill, items)
     }
 
-    private fun findBillOrThrow(billId: UUID): Bill =
-        billRepository.findById(billId).orElseThrow { NotFoundException("Bill not found") }
+    private fun findBillOrThrow(billId: UUID): Bill = billRepository.findById(billId).orElseThrow { NotFoundException("Bill not found") }
 
-    private fun requireMember(groupId: UUID, userId: UUID) {
+    private fun requireMember(
+        groupId: UUID,
+        userId: UUID,
+    ) {
         if (!groupMemberRepository.existsByIdGroupIdAndIdUserId(groupId, userId)) {
             throw ForbiddenException("Not a member of this group")
         }
@@ -178,11 +218,15 @@ class BillService(
         billRepository.save(bill)
     }
 
-    private fun toDto(bill: Bill, items: List<BillItem>): BillDto {
-        val itemDtos = items.map { item ->
-            val splits = billItemSplitRepository.findByItemId(item.id)
-            toItemDto(item, splits)
-        }
+    private fun toDto(
+        bill: Bill,
+        items: List<BillItem>,
+    ): BillDto {
+        val itemDtos =
+            items.map { item ->
+                val splits = billItemSplitRepository.findByItemId(item.id)
+                toItemDto(item, splits)
+            }
         return BillDto(
             id = bill.id,
             groupId = bill.group.id,
@@ -193,15 +237,18 @@ class BillService(
             receiptUrl = bill.receiptUrl,
             spunWinnerId = bill.spunWinner?.id,
             createdAt = bill.createdAt,
-            items = itemDtos
+            items = itemDtos,
         )
     }
 
-    private fun toItemDto(item: BillItem, splits: List<BillItemSplit>) = BillItemDto(
+    private fun toItemDto(
+        item: BillItem,
+        splits: List<BillItemSplit>,
+    ) = BillItemDto(
         id = item.id,
         name = item.name,
         price = item.price,
         quantity = item.quantity,
-        splits = splits.map { SplitDto(it.id, it.user.id, it.shareAmount) }
+        splits = splits.map { SplitDto(it.id, it.user.id, it.shareAmount) },
     )
 }

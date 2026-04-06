@@ -9,5 +9,6 @@ import java.util.UUID
 @Repository
 interface GroupRepository : JpaRepository<Group, UUID> {
     fun findByInviteCode(inviteCode: String): Optional<Group>
+
     fun existsByInviteCode(inviteCode: String): Boolean
 }

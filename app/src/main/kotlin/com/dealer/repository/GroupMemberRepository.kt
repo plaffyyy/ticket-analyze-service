@@ -9,7 +9,16 @@ import java.util.UUID
 @Repository
 interface GroupMemberRepository : JpaRepository<GroupMember, GroupMemberId> {
     fun findByIdGroupId(groupId: UUID): List<GroupMember>
+
     fun findByIdUserId(userId: UUID): List<GroupMember>
-    fun existsByIdGroupIdAndIdUserId(groupId: UUID, userId: UUID): Boolean
-    fun deleteByIdGroupIdAndIdUserId(groupId: UUID, userId: UUID)
+
+    fun existsByIdGroupIdAndIdUserId(
+        groupId: UUID,
+        userId: UUID,
+    ): Boolean
+
+    fun deleteByIdGroupIdAndIdUserId(
+        groupId: UUID,
+        userId: UUID,
+    )
 }

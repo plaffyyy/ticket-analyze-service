@@ -10,5 +10,5 @@ data class NotificationDto(
     val body: String,
     val payloadJson: String?,
     val isRead: Boolean,
-    val createdAt: OffsetDateTime
+    val createdAt: OffsetDateTime,
 )

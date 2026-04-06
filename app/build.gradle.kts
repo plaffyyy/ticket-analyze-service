@@ -7,6 +7,7 @@ plugins {
     kotlin("plugin.spring") version "2.1.10"
     kotlin("plugin.jpa") version "2.1.10"
     kotlin("plugin.noarg") version "2.1.10"
+    id("org.jlleitschuh.gradle.ktlint") version "12.2.0"
 }
 
 group = "com.dealer"
@@ -111,4 +112,12 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+ktlint {
+    // Align ktlint engine with Kotlin 2.1 (bundled default can break on .kts lexer)
+    version.set("1.5.0")
+    filter {
+        exclude("**/generated/**")
+    }
 }
