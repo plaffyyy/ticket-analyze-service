@@ -30,23 +30,26 @@ private fun sha256(input: String): String {
 }
 
 class AuthServiceTest {
-
     private val userRepository = mockk<UserRepository>()
     private val refreshTokenRepository = mockk<RefreshTokenRepository>(relaxed = true)
     private val passwordEncoder = mockk<PasswordEncoder>()
     private val jwtProvider = mockk<JwtProvider>()
 
-    private val service = AuthService(
-        userRepository,
-        refreshTokenRepository,
-        passwordEncoder,
-        jwtProvider
-    )
+    private val service =
+        AuthService(
+            userRepository,
+            refreshTokenRepository,
+            passwordEncoder,
+            jwtProvider,
+        )
 
-    private fun newUser(id: UUID = UUID.randomUUID(), email: String = "a@b.com") = User(
+    private fun newUser(
+        id: UUID = UUID.randomUUID(),
+        email: String = "a@b.com",
+    ) = User(
         name = "User",
         email = email,
-        passwordHash = "hashed"
+        passwordHash = "hashed",
     ).apply { this.id = id }
 
     @Test
@@ -126,11 +129,12 @@ class AuthServiceTest {
     fun `refresh throws when expired`() {
         val u = newUser()
         val raw = "refresh-raw"
-        val token = RefreshToken(
-            user = u,
-            tokenHash = sha256(raw),
-            expiresAt = OffsetDateTime.now().minusSeconds(1)
-        )
+        val token =
+            RefreshToken(
+                user = u,
+                tokenHash = sha256(raw),
+                expiresAt = OffsetDateTime.now().minusSeconds(1),
+            )
         every { refreshTokenRepository.findByTokenHash(sha256(raw)) } returns Optional.of(token)
 
         assertThrows<UnauthorizedException> {
@@ -143,11 +147,12 @@ class AuthServiceTest {
     fun `refresh succeeds`() {
         val u = newUser()
         val raw = "refresh-raw"
-        val token = RefreshToken(
-            user = u,
-            tokenHash = sha256(raw),
-            expiresAt = OffsetDateTime.now().plusDays(1)
-        )
+        val token =
+            RefreshToken(
+                user = u,
+                tokenHash = sha256(raw),
+                expiresAt = OffsetDateTime.now().plusDays(1),
+            )
         every { refreshTokenRepository.findByTokenHash(sha256(raw)) } returns Optional.of(token)
         every { jwtProvider.generateAccessToken(u.id, u.email) } returns "new-access"
         every { refreshTokenRepository.save(any()) } answers { firstArg() }

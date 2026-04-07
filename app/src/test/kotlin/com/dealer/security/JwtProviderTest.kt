@@ -9,12 +9,12 @@ import java.time.Duration
 import java.util.UUID
 
 class JwtProviderTest {
-
     private fun provider(): JwtProvider {
-        val props = JwtProperties().apply {
-            secret = "x".repeat(32)
-            accessTokenTtl = Duration.ofMinutes(15)
-        }
+        val props =
+            JwtProperties().apply {
+                secret = "x".repeat(32)
+                accessTokenTtl = Duration.ofMinutes(15)
+            }
         return JwtProvider(props)
     }
 

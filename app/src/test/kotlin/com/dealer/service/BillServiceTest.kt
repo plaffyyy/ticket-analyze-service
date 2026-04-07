@@ -23,8 +23,8 @@ import com.dealer.repository.UserRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
@@ -32,7 +32,6 @@ import java.util.Optional
 import java.util.UUID
 
 class BillServiceTest {
-
     private val billRepository = mockk<BillRepository>(relaxed = true)
     private val billItemRepository = mockk<BillItemRepository>(relaxed = true)
     private val billItemSplitRepository = mockk<BillItemSplitRepository>(relaxed = true)
@@ -41,15 +40,16 @@ class BillServiceTest {
     private val userRepository = mockk<UserRepository>()
     private val transactionRepository = mockk<TransactionRepository>(relaxed = true)
 
-    private val service = BillService(
-        billRepository,
-        billItemRepository,
-        billItemSplitRepository,
-        groupRepository,
-        groupMemberRepository,
-        userRepository,
-        transactionRepository
-    )
+    private val service =
+        BillService(
+            billRepository,
+            billItemRepository,
+            billItemSplitRepository,
+            groupRepository,
+            groupMemberRepository,
+            userRepository,
+            transactionRepository,
+        )
 
     @BeforeEach
     fun stubSaves() {
@@ -59,14 +59,19 @@ class BillServiceTest {
 
     private fun user(id: UUID = UUID.randomUUID()) = User("N", "e@e.com", "h").apply { this.id = id }
 
-    private fun group(owner: User, gid: UUID = UUID.randomUUID()) =
-        Group("G", owner, "CODE", "USD").apply { id = gid }
+    private fun group(
+        owner: User,
+        gid: UUID = UUID.randomUUID(),
+    ) = Group("G", owner, "CODE", "USD").apply { id = gid }
 
-    private fun bill(g: Group, creator: User, bid: UUID = UUID.randomUUID()) =
-        Bill(group = g, createdBy = creator, title = "T", currency = "USD").apply {
-            id = bid
-            status = BillStatus.OPEN
-        }
+    private fun bill(
+        g: Group,
+        creator: User,
+        bid: UUID = UUID.randomUUID(),
+    ) = Bill(group = g, createdBy = creator, title = "T", currency = "USD").apply {
+        id = bid
+        status = BillStatus.OPEN
+    }
 
     @Test
     fun `createBill throws when group missing`() {
@@ -130,13 +135,14 @@ class BillServiceTest {
         val u = user()
         val g = group(u)
         val b = bill(g, u)
-        val tx = Transaction(
-            bill = b,
-            debtor = u,
-            creditor = user(),
-            amount = BigDecimal.ONE,
-            status = TransactionStatus.PENDING
-        ).apply { id = UUID.randomUUID() }
+        val tx =
+            Transaction(
+                bill = b,
+                debtor = u,
+                creditor = user(),
+                amount = BigDecimal.ONE,
+                status = TransactionStatus.PENDING,
+            ).apply { id = UUID.randomUUID() }
 
         every { billRepository.findById(b.id) } returns Optional.of(b)
         every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, u.id) } returns true
@@ -162,7 +168,7 @@ class BillServiceTest {
             service.addItem(
                 b.id,
                 u.id,
-                AddBillItemRequest("coffee", BigDecimal("2.00"), 1)
+                AddBillItemRequest("coffee", BigDecimal("2.00"), 1),
             )
         }
     }
@@ -179,9 +185,10 @@ class BillServiceTest {
             it.id = UUID.randomUUID()
             it
         }
-        every { billItemRepository.findByBillId(b.id) } returns listOf(
-            BillItem(bill = b, name = "x", price = BigDecimal("3.00"), quantity = 2).apply { id = UUID.randomUUID() }
-        )
+        every { billItemRepository.findByBillId(b.id) } returns
+            listOf(
+                BillItem(bill = b, name = "x", price = BigDecimal("3.00"), quantity = 2).apply { id = UUID.randomUUID() },
+            )
 
         service.addItem(b.id, u.id, AddBillItemRequest("x", BigDecimal("3.00"), 2))
 
@@ -206,10 +213,11 @@ class BillServiceTest {
                 b.id,
                 u.id,
                 BillSplitsRequest(
-                    splits = listOf(
-                        BillSplitsRequest.SplitEntry(missingItemId, u.id, BigDecimal.ONE)
-                    )
-                )
+                    splits =
+                        listOf(
+                            BillSplitsRequest.SplitEntry(missingItemId, u.id, BigDecimal.ONE),
+                        ),
+                ),
             )
         }
     }

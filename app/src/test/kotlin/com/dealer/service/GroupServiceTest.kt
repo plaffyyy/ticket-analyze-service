@@ -28,18 +28,18 @@ import java.util.Optional
 import java.util.UUID
 
 class GroupServiceTest {
-
     private val groupRepository = mockk<GroupRepository>()
     private val groupMemberRepository = mockk<GroupMemberRepository>(relaxed = true)
     private val userRepository = mockk<UserRepository>()
     private val transactionRepository = mockk<TransactionRepository>()
 
-    private val service = GroupService(
-        groupRepository,
-        groupMemberRepository,
-        userRepository,
-        transactionRepository
-    )
+    private val service =
+        GroupService(
+            groupRepository,
+            groupMemberRepository,
+            userRepository,
+            transactionRepository,
+        )
 
     @BeforeEach
     fun stubGroupSave() {
@@ -49,8 +49,10 @@ class GroupServiceTest {
 
     private fun user(id: UUID = UUID.randomUUID()) = User("N", "e@e.com", "h").apply { this.id = id }
 
-    private fun group(owner: User, gid: UUID = UUID.randomUUID()) =
-        Group("G", owner, "INVITE01", "USD").apply { id = gid }
+    private fun group(
+        owner: User,
+        gid: UUID = UUID.randomUUID(),
+    ) = Group("G", owner, "INVITE01", "USD").apply { id = gid }
 
     @Test
     fun `createGroup saves group and owner membership`() {
@@ -127,21 +129,26 @@ class GroupServiceTest {
         val u2 = user()
         val gid = UUID.randomUUID()
         val g = group(u1, gid)
-        val bill = com.dealer.domain.model.Bill(group = g, createdBy = u1, title = "B", currency = "USD").apply { id = UUID.randomUUID() }
-        val tx = Transaction(
-            bill = bill,
-            debtor = u1,
-            creditor = u2,
-            amount = BigDecimal("10.00"),
-            status = TransactionStatus.PENDING
-        ).apply { id = UUID.randomUUID() }
+        val bill =
+            com.dealer.domain.model
+                .Bill(group = g, createdBy = u1, title = "B", currency = "USD")
+                .apply { id = UUID.randomUUID() }
+        val tx =
+            Transaction(
+                bill = bill,
+                debtor = u1,
+                creditor = u2,
+                amount = BigDecimal("10.00"),
+                status = TransactionStatus.PENDING,
+            ).apply { id = UUID.randomUUID() }
 
         every { groupRepository.findById(gid) } returns Optional.of(g)
         every { groupMemberRepository.existsByIdGroupIdAndIdUserId(gid, u1.id) } returns true
-        every { groupMemberRepository.findByIdGroupId(gid) } returns listOf(
-            GroupMember(GroupMemberId(gid, u1.id), MemberRole.OWNER),
-            GroupMember(GroupMemberId(gid, u2.id), MemberRole.MEMBER)
-        )
+        every { groupMemberRepository.findByIdGroupId(gid) } returns
+            listOf(
+                GroupMember(GroupMemberId(gid, u1.id), MemberRole.OWNER),
+                GroupMember(GroupMemberId(gid, u2.id), MemberRole.MEMBER),
+            )
         every { transactionRepository.findByGroupId(gid) } returns listOf(tx)
         every { userRepository.findAllById(any<List<UUID>>()) } returns listOf(u1, u2)
 

@@ -17,7 +17,6 @@ import java.util.Optional
 import java.util.UUID
 
 class UserServiceTest {
-
     private val userRepository = mockk<UserRepository>()
     private val deviceRepository = mockk<DeviceRepository>(relaxed = true)
     private val service = UserService(userRepository, deviceRepository)
@@ -87,7 +86,7 @@ class UserServiceTest {
             deviceRepository.save(
                 match {
                     it.fcmToken == "tok" && it.platform == Platform.ANDROID && it.user.id == u.id
-                }
+                },
             )
         }
     }
