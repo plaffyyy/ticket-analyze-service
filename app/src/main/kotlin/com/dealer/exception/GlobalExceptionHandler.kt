@@ -13,7 +13,7 @@ data class ErrorResponse(
     val status: Int,
     val error: String,
     val message: String,
-    val timestamp: OffsetDateTime = OffsetDateTime.now()
+    val timestamp: OffsetDateTime = OffsetDateTime.now(),
 )
 
 data class ValidationErrorResponse(
@@ -21,12 +21,11 @@ data class ValidationErrorResponse(
     val error: String,
     val message: String,
     val fields: Map<String, String>,
-    val timestamp: OffsetDateTime = OffsetDateTime.now()
+    val timestamp: OffsetDateTime = OffsetDateTime.now(),
 )
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
-
     private val log = LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
 
     @ExceptionHandler(DealerException::class)
@@ -46,11 +45,10 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(EntityNotFoundException::class)
-    fun handleEntityNotFound(ex: EntityNotFoundException): ResponseEntity<ErrorResponse> {
-        return ResponseEntity
+    fun handleEntityNotFound(ex: EntityNotFoundException): ResponseEntity<ErrorResponse> =
+        ResponseEntity
             .status(HttpStatus.NOT_FOUND)
             .body(ErrorResponse(404, "Not Found", ex.message ?: "Resource not found"))
-    }
 
     @ExceptionHandler(Exception::class)
     fun handleGeneral(ex: Exception): ResponseEntity<ErrorResponse> {

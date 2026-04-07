@@ -14,5 +14,7 @@ interface NotificationRepository : JpaRepository<Notification, UUID> {
 
     @Modifying
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.user.id = :userId AND n.isRead = false")
-    fun markAllAsRead(@Param("userId") userId: UUID): Int
+    fun markAllAsRead(
+        @Param("userId") userId: UUID,
+    ): Int
 }

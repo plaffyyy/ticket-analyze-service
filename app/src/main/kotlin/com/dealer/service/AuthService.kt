@@ -26,27 +26,29 @@ class AuthService(
     private val userRepository: UserRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val passwordEncoder: PasswordEncoder,
-    private val jwtProvider: JwtProvider
+    private val jwtProvider: JwtProvider,
 ) {
-
     @Transactional
     fun register(request: RegisterRequest): AuthResponse {
         if (userRepository.existsByEmail(request.email.trim())) {
             throw ConflictException("Email already in use")
         }
-        val user = User(
-            name = request.name.trim(),
-            email = request.email.trim().lowercase(),
-            passwordHash = passwordEncoder.encode(request.password)
-        )
+        val user =
+            User(
+                name = request.name.trim(),
+                email = request.email.trim().lowercase(),
+                passwordHash = passwordEncoder.encode(request.password),
+            )
         val savedUser = userRepository.save(user)
         return issueTokens(savedUser)
     }
 
     @Transactional
     fun login(request: LoginRequest): AuthResponse {
-        val user = userRepository.findByEmail(request.email.trim().lowercase())
-            .orElseThrow { NotFoundException("User not found") }
+        val user =
+            userRepository
+                .findByEmail(request.email.trim().lowercase())
+                .orElseThrow { NotFoundException("User not found") }
         if (!passwordEncoder.matches(request.password, user.passwordHash)) {
             throw UnauthorizedException("Invalid credentials")
         }
@@ -56,8 +58,10 @@ class AuthService(
     @Transactional
     fun refresh(request: RefreshRequest): TokenResponse {
         val hash = sha256(request.refreshToken)
-        val stored = refreshTokenRepository.findByTokenHash(hash)
-            .orElseThrow { UnauthorizedException("Invalid or expired refresh token") }
+        val stored =
+            refreshTokenRepository
+                .findByTokenHash(hash)
+                .orElseThrow { UnauthorizedException("Invalid or expired refresh token") }
         if (stored.expiresAt.isBefore(OffsetDateTime.now())) {
             refreshTokenRepository.delete(stored)
             throw UnauthorizedException("Refresh token expired")
@@ -68,7 +72,7 @@ class AuthService(
         saveRefreshToken(user, rawRefresh)
         return TokenResponse(
             accessToken = jwtProvider.generateAccessToken(user.id, user.email),
-            refreshToken = rawRefresh
+            refreshToken = rawRefresh,
         )
     }
 
@@ -84,16 +88,20 @@ class AuthService(
         return AuthResponse(
             accessToken = jwtProvider.generateAccessToken(user.id, user.email),
             refreshToken = rawRefresh,
-            user = UserDto(user.id, user.name, user.email, user.avatarUrl, user.currencyDefault)
+            user = UserDto(user.id, user.name, user.email, user.avatarUrl, user.currencyDefault),
         )
     }
 
-    private fun saveRefreshToken(user: User, rawToken: String) {
-        val token = RefreshToken(
-            user = user,
-            tokenHash = sha256(rawToken),
-            expiresAt = OffsetDateTime.now().plusDays(30)
-        )
+    private fun saveRefreshToken(
+        user: User,
+        rawToken: String,
+    ) {
+        val token =
+            RefreshToken(
+                user = user,
+                tokenHash = sha256(rawToken),
+                expiresAt = OffsetDateTime.now().plusDays(30),
+            )
         refreshTokenRepository.save(token)
     }
 

@@ -11,27 +11,27 @@ data class GroupDto(
     val inviteCode: String,
     val currency: String,
     val createdAt: OffsetDateTime,
-    val members: List<MemberDto>
+    val members: List<MemberDto>,
 )
 
 data class MemberDto(
     val userId: UUID,
     val name: String,
-    val role: String
+    val role: String,
 )
 
 data class BalanceResponse(
     val groupId: UUID,
-    val balances: List<BalanceEntry>
+    val balances: List<BalanceEntry>,
 )
 
 data class BalanceEntry(
     val userId: UUID,
     val name: String,
-    val balance: BigDecimal
+    val balance: BigDecimal,
 )
 
 data class InviteResponse(
     val inviteCode: String,
-    val deepLink: String
+    val deepLink: String,
 )

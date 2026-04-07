@@ -14,10 +14,17 @@ interface TransactionRepository : JpaRepository<Transaction, UUID> {
     fun findByBillId(billId: UUID): List<Transaction>
 
     @Query("SELECT t FROM Transaction t WHERE t.debtor.id = :userId OR t.creditor.id = :userId")
-    fun findByUserId(@Param("userId") userId: UUID): List<Transaction>
+    fun findByUserId(
+        @Param("userId") userId: UUID,
+    ): List<Transaction>
 
     @Query("SELECT DISTINCT t FROM Transaction t WHERE t.bill.group.id = :groupId")
-    fun findByGroupId(@Param("groupId") groupId: UUID): List<Transaction>
+    fun findByGroupId(
+        @Param("groupId") groupId: UUID,
+    ): List<Transaction>
 
-    fun findByStatusAndCreatedAtBefore(status: TransactionStatus, cutoff: OffsetDateTime): List<Transaction>
+    fun findByStatusAndCreatedAtBefore(
+        status: TransactionStatus,
+        cutoff: OffsetDateTime,
+    ): List<Transaction>
 }

@@ -10,18 +10,18 @@ import org.springframework.context.annotation.Configuration
 
 @Configuration
 class OpenApiConfig {
-
     @Bean
-    fun openAPI(): OpenAPI = OpenAPI()
-        .info(Info().title("Dealer API").version("v1").description("Restaurant bill splitting service"))
-        .addSecurityItem(SecurityRequirement().addList("Bearer"))
-        .components(
-            Components().addSecuritySchemes(
-                "Bearer",
-                SecurityScheme()
-                    .type(SecurityScheme.Type.HTTP)
-                    .scheme("bearer")
-                    .bearerFormat("JWT")
+    fun openAPI(): OpenAPI =
+        OpenAPI()
+            .info(Info().title("Dealer API").version("v1").description("Restaurant bill splitting service"))
+            .addSecurityItem(SecurityRequirement().addList("Bearer"))
+            .components(
+                Components().addSecuritySchemes(
+                    "Bearer",
+                    SecurityScheme()
+                        .type(SecurityScheme.Type.HTTP)
+                        .scheme("bearer")
+                        .bearerFormat("JWT"),
+                ),
             )
-        )
 }

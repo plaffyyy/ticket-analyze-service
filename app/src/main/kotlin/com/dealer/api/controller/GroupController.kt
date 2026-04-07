@@ -26,45 +26,55 @@ import java.util.UUID
 @RequestMapping("/api/v1/groups")
 class GroupController(
     private val groupService: GroupService,
-    private val billService: BillService
+    private val billService: BillService,
 ) {
-
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    fun createGroup(@Valid @RequestBody request: CreateGroupRequest): GroupDto =
-        groupService.createGroup(SecurityUtils.getCurrentUserId(), request)
+    fun createGroup(
+        @Valid @RequestBody request: CreateGroupRequest,
+    ): GroupDto = groupService.createGroup(SecurityUtils.getCurrentUserId(), request)
 
     @GetMapping("/{id}")
-    fun getGroup(@PathVariable id: UUID): GroupDto =
-        groupService.getGroup(id, SecurityUtils.getCurrentUserId())
+    fun getGroup(
+        @PathVariable id: UUID,
+    ): GroupDto = groupService.getGroup(id, SecurityUtils.getCurrentUserId())
 
     @PatchMapping("/{id}")
-    fun updateGroup(@PathVariable id: UUID, @Valid @RequestBody request: UpdateGroupRequest): GroupDto =
-        groupService.updateGroup(id, SecurityUtils.getCurrentUserId(), request)
+    fun updateGroup(
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: UpdateGroupRequest,
+    ): GroupDto = groupService.updateGroup(id, SecurityUtils.getCurrentUserId(), request)
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun deleteGroup(@PathVariable id: UUID) =
-        groupService.deleteGroup(id, SecurityUtils.getCurrentUserId())
+    fun deleteGroup(
+        @PathVariable id: UUID,
+    ) = groupService.deleteGroup(id, SecurityUtils.getCurrentUserId())
 
     @PostMapping("/{id}/invite")
-    fun generateInvite(@PathVariable id: UUID): InviteResponse =
-        groupService.regenerateInvite(id, SecurityUtils.getCurrentUserId())
+    fun generateInvite(
+        @PathVariable id: UUID,
+    ): InviteResponse = groupService.regenerateInvite(id, SecurityUtils.getCurrentUserId())
 
     @PostMapping("/join/{code}")
-    fun joinGroup(@PathVariable code: String): GroupDto =
-        groupService.joinGroup(code, SecurityUtils.getCurrentUserId())
+    fun joinGroup(
+        @PathVariable code: String,
+    ): GroupDto = groupService.joinGroup(code, SecurityUtils.getCurrentUserId())
 
     @GetMapping("/{id}/balance")
-    fun getBalance(@PathVariable id: UUID): BalanceResponse =
-        groupService.getBalance(id, SecurityUtils.getCurrentUserId())
+    fun getBalance(
+        @PathVariable id: UUID,
+    ): BalanceResponse = groupService.getBalance(id, SecurityUtils.getCurrentUserId())
 
     @GetMapping("/{id}/bills")
-    fun getGroupBills(@PathVariable id: UUID): List<BillDto> =
-        billService.getGroupBills(id, SecurityUtils.getCurrentUserId())
+    fun getGroupBills(
+        @PathVariable id: UUID,
+    ): List<BillDto> = billService.getGroupBills(id, SecurityUtils.getCurrentUserId())
 
     @DeleteMapping("/{id}/members/{userId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun removeMember(@PathVariable id: UUID, @PathVariable userId: UUID) =
-        groupService.removeMember(id, userId, SecurityUtils.getCurrentUserId())
+    fun removeMember(
+        @PathVariable id: UUID,
+        @PathVariable userId: UUID,
+    ) = groupService.removeMember(id, userId, SecurityUtils.getCurrentUserId())
 }

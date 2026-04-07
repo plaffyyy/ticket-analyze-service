@@ -8,5 +8,6 @@ import java.util.UUID
 @Repository
 interface BillItemSplitRepository : JpaRepository<BillItemSplit, UUID> {
     fun findByItemId(itemId: UUID): List<BillItemSplit>
+
     fun deleteByItemId(itemId: UUID)
 }

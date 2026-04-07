@@ -14,7 +14,7 @@ data class BillDto(
     val receiptUrl: String?,
     val spunWinnerId: UUID?,
     val createdAt: OffsetDateTime,
-    val items: List<BillItemDto>
+    val items: List<BillItemDto>,
 )
 
 data class BillItemDto(
@@ -22,22 +22,22 @@ data class BillItemDto(
     val name: String,
     val price: BigDecimal,
     val quantity: Int,
-    val splits: List<SplitDto>
+    val splits: List<SplitDto>,
 )
 
 data class SplitDto(
     val id: UUID,
     val userId: UUID,
-    val shareAmount: BigDecimal
+    val shareAmount: BigDecimal,
 )
 
 data class OcrStatusResponse(
     val jobId: String,
     val status: String,
-    val billId: UUID? = null
+    val billId: UUID? = null,
 )
 
 data class SpinResponse(
     val winnerId: UUID,
-    val winnerName: String
+    val winnerName: String,
 )
