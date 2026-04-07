@@ -7,7 +7,7 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/dealer
       DATABASE_USER: dealer
       DATABASE_PASSWORD: dealer
-#      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: change-me-in-production-must-be-at-least-256-bits-long-secret-key
       SPRING_PROFILES_ACTIVE: dev
     depends_on:

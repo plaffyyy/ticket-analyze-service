@@ -7,7 +7,9 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 enum class MemberRole {
-    OWNER, MEMBER;
+    OWNER,
+    MEMBER,
+    ;
 
     fun toDbValue(): String = name.lowercase()
 }
@@ -16,18 +18,15 @@ enum class MemberRole {
 data class GroupMemberId(
     @Column(name = "group_id", nullable = false)
     val groupId: UUID,
-
     @Column(name = "user_id", nullable = false)
-    val userId: UUID
+    val userId: UUID,
 ) : Serializable
 
 @Converter(autoApply = false)
 class MemberRoleConverter : AttributeConverter<MemberRole, String> {
-    override fun convertToDatabaseColumn(attribute: MemberRole?): String? =
-        attribute?.toDbValue()
+    override fun convertToDatabaseColumn(attribute: MemberRole?): String? = attribute?.toDbValue()
 
-    override fun convertToEntityAttribute(dbData: String?): MemberRole? =
-        dbData?.let { MemberRole.valueOf(it.uppercase()) }
+    override fun convertToEntityAttribute(dbData: String?): MemberRole? = dbData?.let { MemberRole.valueOf(it.uppercase()) }
 }
 
 @Entity
@@ -35,15 +34,12 @@ class MemberRoleConverter : AttributeConverter<MemberRole, String> {
 class GroupMember(
     @EmbeddedId
     private val id: GroupMemberId,
-
     @Convert(converter = MemberRoleConverter::class)
     @Column(name = "role", nullable = false, length = 10)
     var role: MemberRole = MemberRole.MEMBER,
-
     @Column(name = "joined_at", nullable = false, updatable = false)
-    val joinedAt: OffsetDateTime = OffsetDateTime.now()
+    val joinedAt: OffsetDateTime = OffsetDateTime.now(),
 ) : Persistable<GroupMemberId> {
-
     // Composite key всегда задан при создании — используем Persistable чтобы
     // Spring Data JPA не путал новую запись с существующей
     @field:Transient

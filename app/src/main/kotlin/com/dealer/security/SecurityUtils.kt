@@ -6,8 +6,9 @@ import java.util.UUID
 
 object SecurityUtils {
     fun getCurrentUserId(): UUID {
-        val principal = SecurityContextHolder.getContext().authentication?.principal
-            ?: throw UnauthorizedException("Not authenticated")
+        val principal =
+            SecurityContextHolder.getContext().authentication?.principal
+                ?: throw UnauthorizedException("Not authenticated")
         return when (principal) {
             is UUID -> principal
             is String -> UUID.fromString(principal)

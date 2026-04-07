@@ -8,6 +8,14 @@ import java.util.UUID
 @Repository
 interface DeviceRepository : JpaRepository<Device, UUID> {
     fun findByUserId(userId: UUID): List<Device>
-    fun deleteByUserIdAndFcmToken(userId: UUID, fcmToken: String)
-    fun existsByUserIdAndFcmToken(userId: UUID, fcmToken: String): Boolean
+
+    fun deleteByUserIdAndFcmToken(
+        userId: UUID,
+        fcmToken: String,
+    )
+
+    fun existsByUserIdAndFcmToken(
+        userId: UUID,
+        fcmToken: String,
+    ): Boolean
 }

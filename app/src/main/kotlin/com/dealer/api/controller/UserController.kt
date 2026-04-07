@@ -19,22 +19,26 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/v1/users")
-class UserController(private val userService: UserService) {
-
+class UserController(
+    private val userService: UserService,
+) {
     @GetMapping("/me")
     fun getMe(): UserDto = userService.getCurrentUser(SecurityUtils.getCurrentUserId())
 
     @PatchMapping("/me")
-    fun updateMe(@Valid @RequestBody request: UpdateProfileRequest): UserDto =
-        userService.updateProfile(SecurityUtils.getCurrentUserId(), request)
+    fun updateMe(
+        @Valid @RequestBody request: UpdateProfileRequest,
+    ): UserDto = userService.updateProfile(SecurityUtils.getCurrentUserId(), request)
 
     @PostMapping("/me/fcm-token")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun saveFcmToken(@Valid @RequestBody request: FcmTokenRequest) =
-        userService.saveFcmToken(SecurityUtils.getCurrentUserId(), request)
+    fun saveFcmToken(
+        @Valid @RequestBody request: FcmTokenRequest,
+    ) = userService.saveFcmToken(SecurityUtils.getCurrentUserId(), request)
 
     @DeleteMapping("/me/fcm-token")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun removeFcmToken(@RequestParam fcmToken: String) =
-        userService.removeFcmToken(SecurityUtils.getCurrentUserId(), fcmToken)
+    fun removeFcmToken(
+        @RequestParam fcmToken: String,
+    ) = userService.removeFcmToken(SecurityUtils.getCurrentUserId(), fcmToken)
 }
