@@ -1,6 +1,6 @@
 package com.dealer.service
 
-import com.dealer.domain.dto.BalanceEntry
+import com.dealer.config.CacheNames
 import com.dealer.domain.dto.BalanceResponse
 import com.dealer.domain.dto.CreateGroupRequest
 import com.dealer.domain.dto.GroupDto
@@ -16,11 +16,12 @@ import com.dealer.exception.ForbiddenException
 import com.dealer.exception.NotFoundException
 import com.dealer.repository.GroupMemberRepository
 import com.dealer.repository.GroupRepository
-import com.dealer.repository.TransactionRepository
 import com.dealer.repository.UserRepository
+import com.dealer.support.cache.CacheInvalidator
+import com.dealer.support.cache.CacheSupport
+import com.dealer.support.group.GroupViewFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.math.BigDecimal
 import java.security.SecureRandom
 import java.util.UUID
 
@@ -29,7 +30,9 @@ class GroupService(
     private val groupRepository: GroupRepository,
     private val groupMemberRepository: GroupMemberRepository,
     private val userRepository: UserRepository,
-    private val transactionRepository: TransactionRepository,
+    private val cacheSupport: CacheSupport,
+    private val cacheInvalidator: CacheInvalidator,
+    private val groupViewFactory: GroupViewFactory,
 ) {
     private val secureRandom = SecureRandom()
     private val base62Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
@@ -59,10 +62,9 @@ class GroupService(
         groupId: UUID,
         requesterId: UUID,
     ): GroupDto {
-        val group = findGroupOrThrow(groupId)
+        requireExistingGroup(groupId)
         requireMember(groupId, requesterId)
-        val members = groupMemberRepository.findByIdGroupId(groupId)
-        return toDto(group, members)
+        return cacheSupport.getOrLoad(CacheNames.GROUP, groupId) { groupViewFactory.buildGroup(groupId) }
     }
 
     @Transactional
@@ -79,6 +81,7 @@ class GroupService(
             ?.uppercase()
             ?.let { group.currency = it }
         groupRepository.save(group)
+        cacheInvalidator.evictGroupViews(groupId)
         val members = groupMemberRepository.findByIdGroupId(groupId)
         return toDto(group, members)
     }
@@ -91,6 +94,7 @@ class GroupService(
         val group = findGroupOrThrow(groupId)
         requireOwner(group, requesterId)
         groupRepository.delete(group)
+        cacheInvalidator.evictGroupViews(groupId)
     }
 
     @Transactional
@@ -102,6 +106,7 @@ class GroupService(
         requireOwner(group, requesterId)
         group.inviteCode = generateInviteCode()
         groupRepository.save(group)
+        cacheSupport.evict(CacheNames.GROUP, groupId)
         return InviteResponse(group.inviteCode, "dealer://groups/join/${group.inviteCode}")
     }
 
@@ -118,6 +123,7 @@ class GroupService(
             throw ConflictException("Already a member of this group")
         }
         groupMemberRepository.save(GroupMember(id = GroupMemberId(group.id, userId), role = MemberRole.MEMBER))
+        cacheInvalidator.evictGroupViews(group.id)
         val members = groupMemberRepository.findByIdGroupId(group.id)
         return toDto(group, members)
     }
@@ -127,29 +133,9 @@ class GroupService(
         groupId: UUID,
         requesterId: UUID,
     ): BalanceResponse {
-        findGroupOrThrow(groupId)
+        requireExistingGroup(groupId)
         requireMember(groupId, requesterId)
-        val members = groupMemberRepository.findByIdGroupId(groupId)
-        val transactions = transactionRepository.findByGroupId(groupId)
-
-        val balanceMap = mutableMapOf<UUID, BigDecimal>()
-        members.forEach { balanceMap[it.id.userId] = BigDecimal.ZERO }
-
-        transactions.forEach { tx ->
-            balanceMap[tx.creditor.id] = (balanceMap[tx.creditor.id] ?: BigDecimal.ZERO) + tx.amount
-            balanceMap[tx.debtor.id] = (balanceMap[tx.debtor.id] ?: BigDecimal.ZERO) - tx.amount
-        }
-
-        val userIds = members.map { it.id.userId }
-        val users = userRepository.findAllById(userIds).associateBy { it.id }
-
-        val balances =
-            balanceMap.entries
-                .map { (userId, balance) ->
-                    BalanceEntry(userId, users[userId]?.name ?: "Unknown", balance)
-                }.sortedByDescending { it.balance }
-
-        return BalanceResponse(groupId, balances)
+        return cacheSupport.getOrLoad(CacheNames.GROUP_BALANCE, groupId) { groupViewFactory.buildBalance(groupId) }
     }
 
     @Transactional
@@ -165,6 +151,13 @@ class GroupService(
             throw NotFoundException("Member not found in group")
         }
         groupMemberRepository.deleteByIdGroupIdAndIdUserId(groupId, targetUserId)
+        cacheInvalidator.evictGroupViews(groupId)
+    }
+
+    private fun requireExistingGroup(groupId: UUID) {
+        if (!groupRepository.existsById(groupId)) {
+            throw NotFoundException("Group not found")
+        }
     }
 
     private fun findGroupOrThrow(groupId: UUID): Group =

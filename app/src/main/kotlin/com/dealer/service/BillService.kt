@@ -1,11 +1,11 @@
 package com.dealer.service
 
+import com.dealer.config.CacheNames
 import com.dealer.domain.dto.AddBillItemRequest
 import com.dealer.domain.dto.BillDto
 import com.dealer.domain.dto.BillItemDto
 import com.dealer.domain.dto.BillSplitsRequest
 import com.dealer.domain.dto.CreateBillRequest
-import com.dealer.domain.dto.SplitDto
 import com.dealer.domain.dto.UpdateBillRequest
 import com.dealer.domain.model.Bill
 import com.dealer.domain.model.BillItem
@@ -22,6 +22,9 @@ import com.dealer.repository.GroupMemberRepository
 import com.dealer.repository.GroupRepository
 import com.dealer.repository.TransactionRepository
 import com.dealer.repository.UserRepository
+import com.dealer.support.bill.BillViewFactory
+import com.dealer.support.cache.CacheInvalidator
+import com.dealer.support.cache.CacheSupport
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -37,6 +40,9 @@ class BillService(
     private val groupMemberRepository: GroupMemberRepository,
     private val userRepository: UserRepository,
     private val transactionRepository: TransactionRepository,
+    private val cacheSupport: CacheSupport,
+    private val cacheInvalidator: CacheInvalidator,
+    private val billViewFactory: BillViewFactory,
 ) {
     @Transactional
     fun createBill(
@@ -57,6 +63,8 @@ class BillService(
                 currency = request.currency.trim().uppercase(),
             )
         billRepository.save(bill)
+        cacheSupport.evict(CacheNames.GROUP_BILLS, group.id)
+        cacheSupport.evict(CacheNames.GROUP_BALANCE, group.id)
         return toDto(bill, emptyList())
     }
 
@@ -65,10 +73,9 @@ class BillService(
         billId: UUID,
         requesterId: UUID,
     ): BillDto {
-        val bill = findBillOrThrow(billId)
-        requireMember(bill.group.id, requesterId)
-        val items = billItemRepository.findByBillId(billId)
-        return toDto(bill, items)
+        val groupId = billRepository.findGroupIdByBillId(billId) ?: throw NotFoundException("Bill not found")
+        requireMember(groupId, requesterId)
+        return cacheSupport.getOrLoad(CacheNames.BILL, billId) { billViewFactory.buildBill(billId) }
     }
 
     @Transactional(readOnly = true)
@@ -77,9 +84,7 @@ class BillService(
         requesterId: UUID,
     ): List<BillDto> {
         requireMember(groupId, requesterId)
-        return billRepository.findByGroupId(groupId).map { bill ->
-            toDto(bill, billItemRepository.findByBillId(bill.id))
-        }
+        return cacheSupport.getOrLoad(CacheNames.GROUP_BILLS, groupId) { billViewFactory.buildGroupBills(groupId) }
     }
 
     @Transactional
@@ -88,13 +93,11 @@ class BillService(
         requesterId: UUID,
         request: UpdateBillRequest,
     ): BillDto {
-        val bill = findBillOrThrow(billId)
-        requireMember(bill.group.id, requesterId)
-        requireOpen(bill)
+        val bill = getEditableBill(billId, requesterId)
         request.title?.trim()?.let { bill.title = it }
         billRepository.save(bill)
-        val items = billItemRepository.findByBillId(billId)
-        return toDto(bill, items)
+        cacheInvalidator.evictBillViews(billId, bill.group.id)
+        return toDto(bill, billItemRepository.findByBillId(billId))
     }
 
     @Transactional
@@ -102,9 +105,9 @@ class BillService(
         billId: UUID,
         requesterId: UUID,
     ) {
-        val bill = findBillOrThrow(billId)
-        requireMember(bill.group.id, requesterId)
+        val bill = findBillForMember(billId, requesterId)
         billRepository.delete(bill)
+        cacheInvalidator.evictBillViews(billId, bill.group.id)
     }
 
     @Transactional
@@ -113,13 +116,12 @@ class BillService(
         requesterId: UUID,
         request: AddBillItemRequest,
     ): BillItemDto {
-        val bill = findBillOrThrow(billId)
-        requireMember(bill.group.id, requesterId)
-        requireOpen(bill)
+        val bill = getEditableBill(billId, requesterId)
         val item = BillItem(bill = bill, name = request.name.trim(), price = request.price, quantity = request.quantity)
         billItemRepository.save(item)
         recalculateTotal(bill)
-        return toItemDto(item, emptyList())
+        cacheInvalidator.evictBillViews(billId, bill.group.id)
+        return billViewFactory.toItemDto(item, emptyList())
     }
 
     @Transactional
@@ -129,17 +131,17 @@ class BillService(
         requesterId: UUID,
         request: AddBillItemRequest,
     ): BillItemDto {
-        val bill = findBillOrThrow(billId)
-        requireMember(bill.group.id, requesterId)
-        requireOpen(bill)
+        val bill = getEditableBill(billId, requesterId)
         val item = billItemRepository.findById(itemId).orElseThrow { NotFoundException("Item not found") }
+
         item.name = request.name.trim()
         item.price = request.price
         item.quantity = request.quantity
+
         billItemRepository.save(item)
         recalculateTotal(bill)
-        val splits = billItemSplitRepository.findByItemId(itemId)
-        return toItemDto(item, splits)
+        cacheInvalidator.evictBillViews(billId, bill.group.id)
+        return billViewFactory.toItemDto(item, billItemSplitRepository.findByItemId(itemId))
     }
 
     @Transactional
@@ -148,12 +150,11 @@ class BillService(
         itemId: UUID,
         requesterId: UUID,
     ) {
-        val bill = findBillOrThrow(billId)
-        requireMember(bill.group.id, requesterId)
-        requireOpen(bill)
+        val bill = getEditableBill(billId, requesterId)
         billItemSplitRepository.deleteByItemId(itemId)
         billItemRepository.deleteById(itemId)
         recalculateTotal(bill)
+        cacheInvalidator.evictBillViews(billId, bill.group.id)
     }
 
     @Transactional
@@ -162,18 +163,19 @@ class BillService(
         requesterId: UUID,
         request: BillSplitsRequest,
     ) {
-        val bill = findBillOrThrow(billId)
-        requireMember(bill.group.id, requesterId)
-        requireOpen(bill)
+        val bill = getEditableBill(billId, requesterId)
         val itemIds = request.splits.map { it.itemId }.distinct()
-        itemIds.forEach { billItemSplitRepository.deleteByItemId(it) }
         val items = billItemRepository.findAllById(itemIds).associateBy { it.id }
         val users = userRepository.findAllById(request.splits.map { it.userId }.distinct()).associateBy { it.id }
+
+        itemIds.forEach(billItemSplitRepository::deleteByItemId)
+
         request.splits.forEach { entry ->
             val item = items[entry.itemId] ?: throw NotFoundException("Item ${entry.itemId} not found")
             val user = users[entry.userId] ?: throw NotFoundException("User ${entry.userId} not found")
             billItemSplitRepository.save(BillItemSplit(item = item, user = user, shareAmount = entry.shareAmount))
         }
+        cacheInvalidator.evictBillViews(billId, bill.group.id)
     }
 
     @Transactional
@@ -181,20 +183,40 @@ class BillService(
         billId: UUID,
         requesterId: UUID,
     ): BillDto {
-        val bill = findBillOrThrow(billId)
-        requireMember(bill.group.id, requesterId)
+        val bill = findBillForMember(billId, requesterId)
         if (bill.status == BillStatus.SETTLED) throw ConflictException("Bill already settled")
         bill.status = BillStatus.SETTLED
         billRepository.save(bill)
-        val transactions = transactionRepository.findByBillId(billId)
-        val now = OffsetDateTime.now()
-        transactions.filter { it.status == TransactionStatus.PENDING }.forEach {
-            it.status = TransactionStatus.SETTLED
-            it.settledAt = now
-            transactionRepository.save(it)
-        }
-        val items = billItemRepository.findByBillId(billId)
-        return toDto(bill, items)
+        val settledAt = OffsetDateTime.now()
+        transactionRepository
+            .findByBillId(billId)
+            .filter { it.status == TransactionStatus.PENDING }
+            .forEach { transaction ->
+                transaction.status = TransactionStatus.SETTLED
+                transaction.settledAt = settledAt
+                transactionRepository.save(transaction)
+            }
+
+        cacheInvalidator.evictBillViews(billId, bill.group.id)
+        return toDto(bill, billItemRepository.findByBillId(billId))
+    }
+
+    private fun findBillForMember(
+        billId: UUID,
+        requesterId: UUID,
+    ): Bill {
+        val bill = findBillOrThrow(billId)
+        requireMember(bill.group.id, requesterId)
+        return bill
+    }
+
+    private fun getEditableBill(
+        billId: UUID,
+        requesterId: UUID,
+    ): Bill {
+        val bill = findBillForMember(billId, requesterId)
+        requireOpen(bill)
+        return bill
     }
 
     private fun findBillOrThrow(billId: UUID): Bill = billRepository.findById(billId).orElseThrow { NotFoundException("Bill not found") }
@@ -221,34 +243,5 @@ class BillService(
     private fun toDto(
         bill: Bill,
         items: List<BillItem>,
-    ): BillDto {
-        val itemDtos =
-            items.map { item ->
-                val splits = billItemSplitRepository.findByItemId(item.id)
-                toItemDto(item, splits)
-            }
-        return BillDto(
-            id = bill.id,
-            groupId = bill.group.id,
-            title = bill.title,
-            total = bill.total,
-            currency = bill.currency,
-            status = bill.status.toDbValue(),
-            receiptUrl = bill.receiptUrl,
-            spunWinnerId = bill.spunWinner?.id,
-            createdAt = bill.createdAt,
-            items = itemDtos,
-        )
-    }
-
-    private fun toItemDto(
-        item: BillItem,
-        splits: List<BillItemSplit>,
-    ) = BillItemDto(
-        id = item.id,
-        name = item.name,
-        price = item.price,
-        quantity = item.quantity,
-        splits = splits.map { SplitDto(it.id, it.user.id, it.shareAmount) },
-    )
+    ): BillDto = billViewFactory.buildBill(bill, items)
 }

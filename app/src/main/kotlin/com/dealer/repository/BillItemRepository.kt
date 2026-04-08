@@ -9,5 +9,7 @@ import java.util.UUID
 interface BillItemRepository : JpaRepository<BillItem, UUID> {
     fun findByBillId(billId: UUID): List<BillItem>
 
+    fun findByBillIdIn(billIds: Collection<UUID>): List<BillItem>
+
     fun deleteByBillId(billId: UUID)
 }

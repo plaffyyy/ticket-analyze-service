@@ -18,10 +18,13 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.yaml
-#  data:
-#    redis:
-#      url: ${REDIS_URL:redis://localhost:6379}
-#      timeout: 2000ms
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      timeout: ${REDIS_TIMEOUT:2s}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      repositories:
+        enabled: false
   jackson:
     default-property-inclusion: non_null
     serialization:
@@ -85,3 +88,13 @@ logging:
     root: INFO
     com.dealer: INFO
     org.springframework.security: WARN
+
+app:
+  cache:
+    enabled: ${CACHE_ENABLED:false}
+    ttl:
+      current-user: ${CACHE_TTL_CURRENT_USER:PT5M}
+      group: ${CACHE_TTL_GROUP:PT10M}
+      group-balance: ${CACHE_TTL_GROUP_BALANCE:PT1M}
+      bill: ${CACHE_TTL_BILL:PT5M}
+      group-bills: ${CACHE_TTL_GROUP_BILLS:PT2M}

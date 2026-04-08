@@ -6,20 +6,28 @@ import com.dealer.domain.model.Platform
 import com.dealer.domain.model.User
 import com.dealer.exception.NotFoundException
 import com.dealer.repository.DeviceRepository
+import com.dealer.repository.GroupMemberRepository
 import com.dealer.repository.UserRepository
+import com.dealer.support.cache.CacheInvalidator
+import com.dealer.support.cache.CacheSupport
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager
 import java.util.Optional
 import java.util.UUID
 
 class UserServiceTest {
     private val userRepository = mockk<UserRepository>()
     private val deviceRepository = mockk<DeviceRepository>(relaxed = true)
-    private val service = UserService(userRepository, deviceRepository)
+    private val groupMemberRepository = mockk<GroupMemberRepository>(relaxed = true)
+    private val cacheManager = ConcurrentMapCacheManager()
+    private val cacheSupport = CacheSupport(cacheManager)
+    private val cacheInvalidator = CacheInvalidator(cacheSupport, groupMemberRepository)
+    private val service = UserService(userRepository, deviceRepository, cacheSupport, cacheInvalidator)
 
     private fun user(id: UUID = UUID.randomUUID()) = User("N", "e@e.com", "h").apply { this.id = id }
 
@@ -57,6 +65,7 @@ class UserServiceTest {
         val u = user()
         every { userRepository.findById(u.id) } returns Optional.of(u)
         every { userRepository.save(any()) } answers { firstArg() }
+        every { groupMemberRepository.findByIdUserId(u.id) } returns emptyList()
 
         val dto = service.updateProfile(u.id, UpdateProfileRequest(name = " New ", currencyDefault = "eur"))
 
