@@ -18,6 +18,23 @@ spring:
         show_sql: false
 
 app:
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    auth:
+      capacity: ${RATE_LIMIT_AUTH_CAPACITY:12}
+      refill-tokens: ${RATE_LIMIT_AUTH_REFILL_TOKENS:12}
+      refill-period: ${RATE_LIMIT_AUTH_REFILL_PERIOD:PT15M}
+      refill-strategy: ${RATE_LIMIT_AUTH_REFILL_STRATEGY:INTERVALLY}
+    private-api:
+      capacity: ${RATE_LIMIT_PRIVATE_CAPACITY:240}
+      refill-tokens: ${RATE_LIMIT_PRIVATE_REFILL_TOKENS:240}
+      refill-period: ${RATE_LIMIT_PRIVATE_REFILL_PERIOD:PT1M}
+      refill-strategy: ${RATE_LIMIT_PRIVATE_REFILL_STRATEGY:GREEDY}
+    public-api:
+      capacity: ${RATE_LIMIT_PUBLIC_CAPACITY:100}
+      refill-tokens: ${RATE_LIMIT_PUBLIC_REFILL_TOKENS:100}
+      refill-period: ${RATE_LIMIT_PUBLIC_REFILL_PERIOD:PT1M}
+      refill-strategy: ${RATE_LIMIT_PUBLIC_REFILL_STRATEGY:GREEDY}
   cache:
     enabled: ${CACHE_ENABLED:true}
   firebase:

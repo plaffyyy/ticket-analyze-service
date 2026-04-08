@@ -15,3 +15,21 @@ spring:
     properties:
       hibernate:
         show_sql: true
+
+app:
+  rate-limit:
+    auth:
+      capacity: ${RATE_LIMIT_AUTH_CAPACITY:20}
+      refill-tokens: ${RATE_LIMIT_AUTH_REFILL_TOKENS:1}
+      refill-period: ${RATE_LIMIT_AUTH_REFILL_PERIOD:PT1M}
+      refill-strategy: ${RATE_LIMIT_AUTH_REFILL_STRATEGY:INTERVALLY}
+    private-api:
+      capacity: ${RATE_LIMIT_PRIVATE_CAPACITY:600}
+      refill-tokens: ${RATE_LIMIT_PRIVATE_REFILL_TOKENS:600}
+      refill-period: ${RATE_LIMIT_PRIVATE_REFILL_PERIOD:PT1M}
+      refill-strategy: ${RATE_LIMIT_PRIVATE_REFILL_STRATEGY:GREEDY}
+    public-api:
+      capacity: ${RATE_LIMIT_PUBLIC_CAPACITY:240}
+      refill-tokens: ${RATE_LIMIT_PUBLIC_REFILL_TOKENS:240}
+      refill-period: ${RATE_LIMIT_PUBLIC_REFILL_PERIOD:PT1M}
+      refill-strategy: ${RATE_LIMIT_PUBLIC_REFILL_STRATEGY:GREEDY}
