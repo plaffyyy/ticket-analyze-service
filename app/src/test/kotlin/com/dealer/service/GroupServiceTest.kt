@@ -15,6 +15,9 @@ import com.dealer.repository.GroupMemberRepository
 import com.dealer.repository.GroupRepository
 import com.dealer.repository.TransactionRepository
 import com.dealer.repository.UserRepository
+import com.dealer.support.cache.CacheInvalidator
+import com.dealer.support.cache.CacheSupport
+import com.dealer.support.group.GroupViewFactory
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -23,6 +26,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager
 import java.math.BigDecimal
 import java.util.Optional
 import java.util.UUID
@@ -32,13 +36,19 @@ class GroupServiceTest {
     private val groupMemberRepository = mockk<GroupMemberRepository>(relaxed = true)
     private val userRepository = mockk<UserRepository>()
     private val transactionRepository = mockk<TransactionRepository>()
+    private val cacheManager = ConcurrentMapCacheManager()
+    private val cacheSupport = CacheSupport(cacheManager)
+    private val cacheInvalidator = CacheInvalidator(cacheSupport, groupMemberRepository)
+    private val groupViewFactory = GroupViewFactory(groupRepository, groupMemberRepository, userRepository, transactionRepository)
 
     private val service =
         GroupService(
             groupRepository,
             groupMemberRepository,
             userRepository,
-            transactionRepository,
+            cacheSupport,
+            cacheInvalidator,
+            groupViewFactory,
         )
 
     @BeforeEach
@@ -77,8 +87,7 @@ class GroupServiceTest {
     @Test
     fun `getGroup throws when not member`() {
         val gid = UUID.randomUUID()
-        val g = group(user(), gid)
-        every { groupRepository.findById(gid) } returns Optional.of(g)
+        every { groupRepository.existsById(gid) } returns true
         every { groupMemberRepository.existsByIdGroupIdAndIdUserId(gid, any()) } returns false
 
         assertThrows<ForbiddenException> {
@@ -142,6 +151,7 @@ class GroupServiceTest {
                 status = TransactionStatus.PENDING,
             ).apply { id = UUID.randomUUID() }
 
+        every { groupRepository.existsById(gid) } returns true
         every { groupRepository.findById(gid) } returns Optional.of(g)
         every { groupMemberRepository.existsByIdGroupIdAndIdUserId(gid, u1.id) } returns true
         every { groupMemberRepository.findByIdGroupId(gid) } returns

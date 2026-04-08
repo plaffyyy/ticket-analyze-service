@@ -16,3 +16,7 @@ spring:
     properties:
       hibernate:
         show_sql: false
+
+app:
+  cache:
+    enabled: ${CACHE_ENABLED:true}

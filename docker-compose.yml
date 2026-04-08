@@ -7,14 +7,15 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/dealer
       DATABASE_USER: dealer
       DATABASE_PASSWORD: dealer
+      CACHE_ENABLED: "true"
       REDIS_URL: redis://redis:6379
       JWT_SECRET: change-me-in-production-must-be-at-least-256-bits-long-secret-key
       SPRING_PROFILES_ACTIVE: dev
     depends_on:
       postgres:
         condition: service_healthy
-#      redis:
-#        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: on-failure
 
   postgres:
@@ -33,15 +34,19 @@ services:
       timeout: 5s
       retries: 5
 
-#  redis:
-#    image: redis:7-alpine
-#    ports:
-#      - "6379:6379"
-#    healthcheck:
-#      test: ["CMD", "redis-cli", "ping"]
-#      interval: 5s
-#      timeout: 5s
-#      retries: 5
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   pgdata:
+  redisdata:

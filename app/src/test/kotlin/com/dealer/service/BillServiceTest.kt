@@ -5,6 +5,7 @@ import com.dealer.domain.dto.BillSplitsRequest
 import com.dealer.domain.dto.CreateBillRequest
 import com.dealer.domain.model.Bill
 import com.dealer.domain.model.BillItem
+import com.dealer.domain.model.BillItemSplit
 import com.dealer.domain.model.BillStatus
 import com.dealer.domain.model.Group
 import com.dealer.domain.model.Transaction
@@ -20,6 +21,9 @@ import com.dealer.repository.GroupMemberRepository
 import com.dealer.repository.GroupRepository
 import com.dealer.repository.TransactionRepository
 import com.dealer.repository.UserRepository
+import com.dealer.support.bill.BillViewFactory
+import com.dealer.support.cache.CacheInvalidator
+import com.dealer.support.cache.CacheSupport
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -27,6 +31,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager
 import java.math.BigDecimal
 import java.util.Optional
 import java.util.UUID
@@ -39,6 +44,10 @@ class BillServiceTest {
     private val groupMemberRepository = mockk<GroupMemberRepository>()
     private val userRepository = mockk<UserRepository>()
     private val transactionRepository = mockk<TransactionRepository>(relaxed = true)
+    private val cacheManager = ConcurrentMapCacheManager()
+    private val cacheSupport = CacheSupport(cacheManager)
+    private val cacheInvalidator = CacheInvalidator(cacheSupport, groupMemberRepository)
+    private val billViewFactory = BillViewFactory(billRepository, billItemRepository, billItemSplitRepository)
 
     private val service =
         BillService(
@@ -49,6 +58,9 @@ class BillServiceTest {
             groupMemberRepository,
             userRepository,
             transactionRepository,
+            cacheSupport,
+            cacheInvalidator,
+            billViewFactory,
         )
 
     @BeforeEach
@@ -115,6 +127,34 @@ class BillServiceTest {
         assertEquals("title", dto.title)
         assertEquals("USD", dto.currency)
         verify { billRepository.save(any()) }
+    }
+
+    @Test
+    fun `getGroupBills builds dto via batch queries`() {
+        val requester = user()
+        val g = group(requester)
+        val b = bill(g, requester)
+        val item = BillItem(bill = b, name = "coffee", price = BigDecimal("2.50"), quantity = 2).apply { id = UUID.randomUUID() }
+        val split = BillItemSplit(item = item, user = requester, shareAmount = BigDecimal("5.00")).apply { id = UUID.randomUUID() }
+
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, requester.id) } returns true
+        every { billRepository.findByGroupId(g.id) } returns listOf(b)
+        every { billItemRepository.findByBillIdIn(listOf(b.id)) } returns listOf(item)
+        every { billItemSplitRepository.findByItemIdIn(listOf(item.id)) } returns listOf(split)
+
+        val result = service.getGroupBills(g.id, requester.id)
+
+        assertEquals(1, result.size)
+        assertEquals(1, result.first().items.size)
+        assertEquals(
+            1,
+            result
+                .first()
+                .items
+                .first()
+                .splits.size,
+        )
+        verify(exactly = 0) { billItemRepository.findByBillId(any()) }
     }
 
     @Test

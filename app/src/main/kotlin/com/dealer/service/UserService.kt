@@ -1,5 +1,6 @@
 package com.dealer.service
 
+import com.dealer.config.CacheNames
 import com.dealer.domain.dto.FcmTokenRequest
 import com.dealer.domain.dto.UpdateProfileRequest
 import com.dealer.domain.dto.UserDto
@@ -8,6 +9,8 @@ import com.dealer.domain.model.Platform
 import com.dealer.exception.NotFoundException
 import com.dealer.repository.DeviceRepository
 import com.dealer.repository.UserRepository
+import com.dealer.support.cache.CacheInvalidator
+import com.dealer.support.cache.CacheSupport
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -16,14 +19,17 @@ import java.util.UUID
 class UserService(
     private val userRepository: UserRepository,
     private val deviceRepository: DeviceRepository,
+    private val cacheSupport: CacheSupport,
+    private val cacheInvalidator: CacheInvalidator,
 ) {
-    fun getCurrentUser(userId: UUID): UserDto {
-        val user =
+    @Transactional(readOnly = true)
+    fun getCurrentUser(userId: UUID): UserDto =
+        cacheSupport.getOrLoad(CacheNames.CURRENT_USER, userId) {
             userRepository
                 .findById(userId)
                 .orElseThrow { NotFoundException("User not found") }
-        return user.toDto()
-    }
+                .toDto()
+        }
 
     @Transactional
     fun updateProfile(
@@ -36,7 +42,9 @@ class UserService(
                 .orElseThrow { NotFoundException("User not found") }
         request.name?.trim()?.let { user.name = it }
         request.currencyDefault?.trim()?.let { user.currencyDefault = it }
-        return userRepository.save(user).toDto()
+        val updatedUser = userRepository.save(user)
+        cacheInvalidator.evictUserViews(userId)
+        return updatedUser.toDto()
     }
 
     @Transactional
