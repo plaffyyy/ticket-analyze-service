@@ -1,6 +1,7 @@
 package com.dealer.config
 
 import com.dealer.security.JwtAuthenticationFilter
+import com.dealer.security.RateLimitFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -18,6 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 class SecurityConfig(
     private val jwtAuthenticationFilter: JwtAuthenticationFilter,
+    private val rateLimitFilter: RateLimitFilter,
 ) {
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
@@ -37,6 +39,7 @@ class SecurityConfig(
                     .anyRequest()
                     .authenticated()
             }.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
+            .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter::class.java)
         return http.build()
     }
 

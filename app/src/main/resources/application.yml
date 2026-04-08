@@ -90,6 +90,23 @@ logging:
     org.springframework.security: WARN
 
 app:
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    auth:
+      capacity: ${RATE_LIMIT_AUTH_CAPACITY:30}
+      refill-tokens: ${RATE_LIMIT_AUTH_REFILL_TOKENS:30}
+      refill-period: ${RATE_LIMIT_AUTH_REFILL_PERIOD:PT1M}
+      refill-strategy: ${RATE_LIMIT_AUTH_REFILL_STRATEGY:GREEDY}
+    private-api:
+      capacity: ${RATE_LIMIT_PRIVATE_CAPACITY:300}
+      refill-tokens: ${RATE_LIMIT_PRIVATE_REFILL_TOKENS:300}
+      refill-period: ${RATE_LIMIT_PRIVATE_REFILL_PERIOD:PT1M}
+      refill-strategy: ${RATE_LIMIT_PRIVATE_REFILL_STRATEGY:GREEDY}
+    public-api:
+      capacity: ${RATE_LIMIT_PUBLIC_CAPACITY:120}
+      refill-tokens: ${RATE_LIMIT_PUBLIC_REFILL_TOKENS:120}
+      refill-period: ${RATE_LIMIT_PUBLIC_REFILL_PERIOD:PT1M}
+      refill-strategy: ${RATE_LIMIT_PUBLIC_REFILL_STRATEGY:GREEDY}
   cache:
     enabled: ${CACHE_ENABLED:false}
     ttl:
