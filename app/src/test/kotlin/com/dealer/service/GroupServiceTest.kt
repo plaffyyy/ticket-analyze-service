@@ -135,7 +135,12 @@ class GroupServiceTest {
         every { groupRepository.findById(g.id) } returns Optional.of(g)
 
         assertThrows<ForbiddenException> {
-            service.updateGroup(g.id, member.id, com.dealer.domain.dto.UpdateGroupRequest(name = "New"))
+            service.updateGroup(
+                g.id,
+                member.id,
+                com.dealer.domain.dto
+                    .UpdateGroupRequest(name = "New"),
+            )
         }
     }
 

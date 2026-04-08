@@ -179,7 +179,13 @@ class BillServiceTest {
         every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, requester.id) } returns true
         every { billItemRepository.findByBillId(b.id) } returns emptyList()
 
-        val result = service.updateBill(b.id, requester.id, com.dealer.domain.dto.UpdateBillRequest(" Dinner Updated "))
+        val result =
+            service.updateBill(
+                b.id,
+                requester.id,
+                com.dealer.domain.dto
+                    .UpdateBillRequest(" Dinner Updated "),
+            )
 
         assertEquals("Dinner Updated", result.title)
     }
