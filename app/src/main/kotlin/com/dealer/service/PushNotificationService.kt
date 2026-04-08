@@ -14,6 +14,7 @@ import java.util.UUID
 class PushNotificationService(
     private val userRepository: UserRepository,
     private val deviceRepository: DeviceRepository,
+    private val firebaseMessaging: FirebaseMessaging?,
 ) {
     private val logger = LoggerFactory.getLogger(PushNotificationService::class.java)
 
@@ -51,14 +52,14 @@ class PushNotificationService(
                 ).addAllTokens(tokens)
                 .build()
 
-        val response = FirebaseMessaging.getInstance().sendEachForMulticast(message)
-
-        response.responses.forEachIndexed { index, sendResponse ->
-            if (!sendResponse.isSuccessful) {
-                val failedToken = tokens[index]
-                deviceRepository.deleteByFcmToken(failedToken)
-                logger.warn("FCM tokens not found.")
-                // TODO: add observability here
+        firebaseMessaging?.sendEachForMulticast(message)?.let {
+            it.responses.forEachIndexed { index, sendResponse ->
+                if (!sendResponse.isSuccessful) {
+                    val failedToken = tokens[index]
+                    deviceRepository.deleteByFcmToken(failedToken)
+                    logger.warn("FCM tokens not found.")
+                    // TODO: add observability here
+                }
             }
         }
     }

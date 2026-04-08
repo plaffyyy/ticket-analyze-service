@@ -3,15 +3,23 @@ package com.dealer.config
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
+import com.google.firebase.messaging.FirebaseMessaging
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.core.io.ClassPathResource
+import org.springframework.context.annotation.DependsOn
+import org.springframework.core.io.ResourceLoader
 
 @Configuration
-class FirebaseConfig {
-    @Bean
+class FirebaseConfig(
+    private val resourceLoader: ResourceLoader,
+    private val firebaseProperties: FirebaseProperties
+) {
+
+    @Bean("firebaseApp")
+    @ConditionalOnProperty(value = ["app.firebase.enabled"], havingValue = "true")
     fun firebaseApp(): FirebaseApp {
-        val stream = ClassPathResource("fcm.json").inputStream
+        val stream = resourceLoader.getResource("file:${firebaseProperties.messagingTokenPath!!}").inputStream
         val options =
             FirebaseOptions
                 .builder()
@@ -24,4 +32,9 @@ class FirebaseConfig {
             FirebaseApp.getInstance()
         }
     }
+
+    @Bean
+    @DependsOn("firebaseApp")
+    @ConditionalOnProperty(value = ["app.firebase.enabled"], havingValue = "true")
+    fun firebaseMessaging(firebaseApp: FirebaseApp): FirebaseMessaging = FirebaseMessaging.getInstance(firebaseApp)
 }

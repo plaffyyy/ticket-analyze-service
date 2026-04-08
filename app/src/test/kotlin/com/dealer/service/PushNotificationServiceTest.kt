@@ -26,7 +26,7 @@ class PushNotificationServiceTest {
     private val userRepository = mockk<UserRepository>()
     private val deviceRepository = mockk<DeviceRepository>(relaxed = true)
     private val firebaseMessaging = mockk<FirebaseMessaging>()
-    private val service = PushNotificationService(userRepository, deviceRepository)
+    private val service = PushNotificationService(userRepository, deviceRepository, firebaseMessaging)
 
     @AfterEach
     fun tearDown() {
