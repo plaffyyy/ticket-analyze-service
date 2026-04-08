@@ -108,6 +108,57 @@ class GroupServiceTest {
     }
 
     @Test
+    fun `joinGroup adds member and returns dto`() {
+        val owner = user()
+        val newMember = user()
+        val g = group(owner)
+        every { groupRepository.findByInviteCode("CODE") } returns Optional.of(g)
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, newMember.id) } returns false
+        every { groupMemberRepository.findByIdGroupId(g.id) } returns
+            listOf(
+                GroupMember(GroupMemberId(g.id, owner.id), MemberRole.OWNER),
+                GroupMember(GroupMemberId(g.id, newMember.id), MemberRole.MEMBER),
+            )
+        every { userRepository.findAllById(any<List<UUID>>()) } returns listOf(owner, newMember)
+
+        val dto = service.joinGroup("CODE", newMember.id)
+
+        assertTrue(dto.members.any { it.userId == newMember.id && it.role == "member" })
+        verify { groupMemberRepository.save(any()) }
+    }
+
+    @Test
+    fun `updateGroup throws when requester is not owner`() {
+        val owner = user()
+        val member = user()
+        val g = group(owner)
+        every { groupRepository.findById(g.id) } returns Optional.of(g)
+
+        assertThrows<ForbiddenException> {
+            service.updateGroup(
+                g.id,
+                member.id,
+                com.dealer.domain.dto
+                    .UpdateGroupRequest(name = "New"),
+            )
+        }
+    }
+
+    @Test
+    fun `regenerateInvite changes code and deeplink`() {
+        val owner = user()
+        val g = group(owner)
+        every { groupRepository.findById(g.id) } returns Optional.of(g)
+        every { groupRepository.existsByInviteCode(any()) } returns false
+
+        val response = service.regenerateInvite(g.id, owner.id)
+
+        assertTrue(response.inviteCode.isNotBlank())
+        assertTrue(response.inviteCode != "INVITE01")
+        assertEquals("dealer://groups/join/${response.inviteCode}", response.deepLink)
+    }
+
+    @Test
     fun `removeMember throws when owner removes self`() {
         val owner = user()
         val g = group(owner)
@@ -167,5 +218,29 @@ class GroupServiceTest {
         val byUser = bal.balances.associateBy { it.userId }
         assertEquals(BigDecimal("-10.00"), byUser[u1.id]!!.balance)
         assertEquals(BigDecimal("10.00"), byUser[u2.id]!!.balance)
+    }
+
+    @Test
+    fun `getBalance returns zeroes for members without transactions`() {
+        val u1 = user()
+        val u2 = user()
+        val gid = UUID.randomUUID()
+        val g = group(u1, gid)
+
+        every { groupRepository.existsById(gid) } returns true
+        every { groupRepository.findById(gid) } returns Optional.of(g)
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(gid, u1.id) } returns true
+        every { groupMemberRepository.findByIdGroupId(gid) } returns
+            listOf(
+                GroupMember(GroupMemberId(gid, u1.id), MemberRole.OWNER),
+                GroupMember(GroupMemberId(gid, u2.id), MemberRole.MEMBER),
+            )
+        every { transactionRepository.findByGroupId(gid) } returns emptyList()
+        every { userRepository.findAllById(any<List<UUID>>()) } returns listOf(u1, u2)
+
+        val result = service.getBalance(gid, u1.id)
+
+        assertEquals(BigDecimal.ZERO, result.balances.first { it.userId == u1.id }.balance)
+        assertEquals(BigDecimal.ZERO, result.balances.first { it.userId == u2.id }.balance)
     }
 }

@@ -30,13 +30,14 @@ class AuthService(
 ) {
     @Transactional
     fun register(request: RegisterRequest): AuthResponse {
-        if (userRepository.existsByEmail(request.email.trim())) {
+        val normalizedEmail = request.email.trim().lowercase()
+        if (userRepository.existsByEmail(normalizedEmail)) {
             throw ConflictException("Email already in use")
         }
         val user =
             User(
                 name = request.name.trim(),
-                email = request.email.trim().lowercase(),
+                email = normalizedEmail,
                 passwordHash = passwordEncoder.encode(request.password),
             )
         val savedUser = userRepository.save(user)

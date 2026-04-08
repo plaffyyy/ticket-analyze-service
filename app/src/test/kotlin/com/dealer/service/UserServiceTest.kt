@@ -52,6 +52,17 @@ class UserServiceTest {
     }
 
     @Test
+    fun `getCurrentUser uses cache on repeated calls`() {
+        val u = user()
+        every { userRepository.findById(u.id) } returns Optional.of(u)
+
+        service.getCurrentUser(u.id)
+        service.getCurrentUser(u.id)
+
+        verify(exactly = 1) { userRepository.findById(u.id) }
+    }
+
+    @Test
     fun `updateProfile throws when user missing`() {
         every { userRepository.findById(any()) } returns Optional.empty()
 
@@ -71,6 +82,22 @@ class UserServiceTest {
 
         assertEquals("New", dto.name)
         assertEquals("eur", dto.currencyDefault)
+    }
+
+    @Test
+    fun `updateProfile evicts cached current user`() {
+        val u = user()
+        every { userRepository.findById(u.id) } returns Optional.of(u)
+        every { userRepository.save(any()) } answers { firstArg() }
+        every { groupMemberRepository.findByIdUserId(u.id) } returns emptyList()
+
+        val cached = service.getCurrentUser(u.id)
+        service.updateProfile(u.id, UpdateProfileRequest(name = "Updated"))
+        val refreshed = service.getCurrentUser(u.id)
+
+        assertEquals("N", cached.name)
+        assertEquals("Updated", refreshed.name)
+        verify(exactly = 3) { userRepository.findById(u.id) }
     }
 
     @Test

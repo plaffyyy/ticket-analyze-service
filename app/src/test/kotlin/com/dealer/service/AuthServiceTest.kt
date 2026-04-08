@@ -83,6 +83,20 @@ class AuthServiceTest {
     }
 
     @Test
+    fun `register normalizes email before uniqueness check`() {
+        every { userRepository.existsByEmail("user@x.com") } returns false
+        every { passwordEncoder.encode("password12") } returns "hash"
+        every { jwtProvider.generateAccessToken(any(), any()) } returns "access"
+        every { userRepository.save(any()) } answers { firstArg<User>().apply { id = UUID.randomUUID() } }
+        every { refreshTokenRepository.save(any()) } answers { firstArg() }
+
+        val result = service.register(RegisterRequest("Name", " User@X.com ", "password12"))
+
+        assertEquals("user@x.com", result.user.email)
+        verify { userRepository.existsByEmail("user@x.com") }
+    }
+
+    @Test
     fun `login throws when user not found`() {
         every { userRepository.findByEmail(any()) } returns Optional.empty()
 
@@ -114,6 +128,20 @@ class AuthServiceTest {
 
         assertEquals("access", r.accessToken)
         verify { refreshTokenRepository.save(any()) }
+    }
+
+    @Test
+    fun `login normalizes email before lookup`() {
+        val u = newUser(email = "user@x.com")
+        every { userRepository.findByEmail("user@x.com") } returns Optional.of(u)
+        every { passwordEncoder.matches("password12", u.passwordHash) } returns true
+        every { jwtProvider.generateAccessToken(any(), any()) } returns "access"
+        every { refreshTokenRepository.save(any()) } answers { firstArg() }
+
+        val r = service.login(LoginRequest(" User@X.com ", "password12"))
+
+        assertEquals("access", r.accessToken)
+        verify { userRepository.findByEmail("user@x.com") }
     }
 
     @Test

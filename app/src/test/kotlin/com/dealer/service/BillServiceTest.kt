@@ -158,6 +158,39 @@ class BillServiceTest {
     }
 
     @Test
+    fun `getBill throws when requester not member`() {
+        val billId = UUID.randomUUID()
+        val groupId = UUID.randomUUID()
+        val requesterId = UUID.randomUUID()
+        every { billRepository.findGroupIdByBillId(billId) } returns groupId
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(groupId, requesterId) } returns false
+
+        assertThrows<ForbiddenException> {
+            service.getBill(billId, requesterId)
+        }
+    }
+
+    @Test
+    fun `updateBill trims title`() {
+        val requester = user()
+        val g = group(requester)
+        val b = bill(g, requester)
+        every { billRepository.findById(b.id) } returns Optional.of(b)
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, requester.id) } returns true
+        every { billItemRepository.findByBillId(b.id) } returns emptyList()
+
+        val result =
+            service.updateBill(
+                b.id,
+                requester.id,
+                com.dealer.domain.dto
+                    .UpdateBillRequest(" Dinner Updated "),
+            )
+
+        assertEquals("Dinner Updated", result.title)
+    }
+
+    @Test
     fun `settleBill throws when already settled`() {
         val u = user()
         val g = group(u)
@@ -237,6 +270,46 @@ class BillServiceTest {
     }
 
     @Test
+    fun `updateItem returns existing splits`() {
+        val requester = user()
+        val splitUser = user()
+        val g = group(requester)
+        val b = bill(g, requester)
+        val item = BillItem(bill = b, name = "old", price = BigDecimal.ONE, quantity = 1).apply { id = UUID.randomUUID() }
+        val split = BillItemSplit(item = item, user = splitUser, shareAmount = BigDecimal("2.50")).apply { id = UUID.randomUUID() }
+
+        every { billRepository.findById(b.id) } returns Optional.of(b)
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, requester.id) } returns true
+        every { billItemRepository.findById(item.id) } returns Optional.of(item)
+        every { billItemRepository.findByBillId(b.id) } returns listOf(item)
+        every { billItemSplitRepository.findByItemId(item.id) } returns listOf(split)
+        every { billItemRepository.save(any()) } answers { firstArg() }
+
+        val result = service.updateItem(b.id, item.id, requester.id, AddBillItemRequest("new", BigDecimal("2.50"), 1))
+
+        assertEquals(1, result.splits.size)
+        assertEquals(splitUser.id, result.splits.first().userId)
+    }
+
+    @Test
+    fun `deleteItem removes splits before deleting item`() {
+        val requester = user()
+        val g = group(requester)
+        val b = bill(g, requester)
+        val itemId = UUID.randomUUID()
+        every { billRepository.findById(b.id) } returns Optional.of(b)
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, requester.id) } returns true
+        every { billItemRepository.findByBillId(b.id) } returns emptyList()
+        every { billItemSplitRepository.deleteByItemId(itemId) } returns Unit
+        every { billItemRepository.deleteById(itemId) } returns Unit
+
+        service.deleteItem(b.id, itemId, requester.id)
+
+        verify { billItemSplitRepository.deleteByItemId(itemId) }
+        verify { billItemRepository.deleteById(itemId) }
+    }
+
+    @Test
     fun `setSplits throws when item missing`() {
         val u = user()
         val g = group(u)
@@ -260,5 +333,102 @@ class BillServiceTest {
                 ),
             )
         }
+    }
+
+    @Test
+    fun `setSplits throws when user missing`() {
+        val requester = user()
+        val g = group(requester)
+        val b = bill(g, requester)
+        val item = BillItem(bill = b, name = "pizza", price = BigDecimal("10.00"), quantity = 1).apply { id = UUID.randomUUID() }
+        val missingUserId = UUID.randomUUID()
+
+        every { billRepository.findById(b.id) } returns Optional.of(b)
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, requester.id) } returns true
+        every { billItemSplitRepository.deleteByItemId(item.id) } returns Unit
+        every { billItemRepository.findAllById(listOf(item.id)) } returns listOf(item)
+        every { userRepository.findAllById(listOf(missingUserId)) } returns emptyList()
+
+        assertThrows<NotFoundException> {
+            service.setSplits(
+                b.id,
+                requester.id,
+                BillSplitsRequest(listOf(BillSplitsRequest.SplitEntry(item.id, missingUserId, BigDecimal.ONE))),
+            )
+        }
+    }
+
+    @Test
+    fun `setSplits replaces existing splits and saves all provided shares`() {
+        val requester = user()
+        val debtor = user()
+        val creditor = user()
+        val g = group(requester)
+        val b = bill(g, requester)
+        val item = BillItem(bill = b, name = "pizza", price = BigDecimal("12.00"), quantity = 1).apply { id = UUID.randomUUID() }
+
+        every { billRepository.findById(b.id) } returns Optional.of(b)
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, requester.id) } returns true
+        every { billItemSplitRepository.deleteByItemId(item.id) } returns Unit
+        every { billItemRepository.findAllById(listOf(item.id)) } returns listOf(item)
+        every { userRepository.findAllById(any<List<UUID>>()) } returns listOf(debtor, creditor)
+        every { billItemSplitRepository.save(any()) } answers { firstArg() }
+
+        service.setSplits(
+            b.id,
+            requester.id,
+            BillSplitsRequest(
+                listOf(
+                    BillSplitsRequest.SplitEntry(item.id, debtor.id, BigDecimal("5.00")),
+                    BillSplitsRequest.SplitEntry(item.id, creditor.id, BigDecimal("7.00")),
+                ),
+            ),
+        )
+
+        verify(exactly = 1) { billItemSplitRepository.deleteByItemId(item.id) }
+        verify {
+            billItemSplitRepository.save(match { it.user.id == debtor.id && it.shareAmount == BigDecimal("5.00") })
+            billItemSplitRepository.save(match { it.user.id == creditor.id && it.shareAmount == BigDecimal("7.00") })
+        }
+    }
+
+    @Test
+    fun `setSplits throws when bill is settled`() {
+        val requester = user()
+        val g = group(requester)
+        val b = bill(g, requester).apply { status = BillStatus.SETTLED }
+        every { billRepository.findById(b.id) } returns Optional.of(b)
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, requester.id) } returns true
+
+        assertThrows<ConflictException> {
+            service.setSplits(
+                b.id,
+                requester.id,
+                BillSplitsRequest(emptyList()),
+            )
+        }
+    }
+
+    @Test
+    fun `settleBill updates only pending transactions`() {
+        val requester = user()
+        val g = group(requester)
+        val b = bill(g, requester)
+        val pending =
+            Transaction(bill = b, debtor = requester, creditor = user(), amount = BigDecimal.ONE, status = TransactionStatus.PENDING)
+                .apply { id = UUID.randomUUID() }
+        val settled =
+            Transaction(bill = b, debtor = requester, creditor = user(), amount = BigDecimal.TEN, status = TransactionStatus.SETTLED)
+                .apply { id = UUID.randomUUID() }
+
+        every { billRepository.findById(b.id) } returns Optional.of(b)
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, requester.id) } returns true
+        every { transactionRepository.findByBillId(b.id) } returns listOf(pending, settled)
+        every { billItemRepository.findByBillId(b.id) } returns emptyList()
+
+        service.settleBill(b.id, requester.id)
+
+        verify(exactly = 1) { transactionRepository.save(pending) }
+        verify(exactly = 0) { transactionRepository.save(settled) }
     }
 }
