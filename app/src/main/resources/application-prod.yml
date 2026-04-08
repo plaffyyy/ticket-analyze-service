@@ -20,3 +20,6 @@ spring:
 app:
   cache:
     enabled: ${CACHE_ENABLED:true}
+  firebase:
+    enabled: ${FIREBASE_ENABLED:true}
+    messaging-token-path: ${FIREBASE_TOKEN_PATH:/etc/fca.json}

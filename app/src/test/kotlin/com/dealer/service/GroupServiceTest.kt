@@ -27,6 +27,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 import java.util.Optional
 import java.util.UUID
@@ -40,6 +41,7 @@ class GroupServiceTest {
     private val cacheSupport = CacheSupport(cacheManager)
     private val cacheInvalidator = CacheInvalidator(cacheSupport, groupMemberRepository)
     private val groupViewFactory = GroupViewFactory(groupRepository, groupMemberRepository, userRepository, transactionRepository)
+    private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
 
     private val service =
         GroupService(
@@ -49,6 +51,7 @@ class GroupServiceTest {
             cacheSupport,
             cacheInvalidator,
             groupViewFactory,
+            eventPublisher,
         )
 
     @BeforeEach

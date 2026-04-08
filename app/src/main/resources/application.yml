@@ -98,3 +98,5 @@ app:
       group-balance: ${CACHE_TTL_GROUP_BALANCE:PT1M}
       bill: ${CACHE_TTL_BILL:PT5M}
       group-bills: ${CACHE_TTL_GROUP_BILLS:PT2M}
+  firebase:
+    enabled: false

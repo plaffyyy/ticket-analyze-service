@@ -11,6 +11,7 @@ import com.dealer.domain.model.Group
 import com.dealer.domain.model.GroupMember
 import com.dealer.domain.model.GroupMemberId
 import com.dealer.domain.model.MemberRole
+import com.dealer.domain.model.UserAddedToGroupEvent
 import com.dealer.exception.ConflictException
 import com.dealer.exception.ForbiddenException
 import com.dealer.exception.NotFoundException
@@ -20,6 +21,7 @@ import com.dealer.repository.UserRepository
 import com.dealer.support.cache.CacheInvalidator
 import com.dealer.support.cache.CacheSupport
 import com.dealer.support.group.GroupViewFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.SecureRandom
@@ -33,6 +35,7 @@ class GroupService(
     private val cacheSupport: CacheSupport,
     private val cacheInvalidator: CacheInvalidator,
     private val groupViewFactory: GroupViewFactory,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     private val secureRandom = SecureRandom()
     private val base62Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
@@ -125,6 +128,16 @@ class GroupService(
         groupMemberRepository.save(GroupMember(id = GroupMemberId(group.id, userId), role = MemberRole.MEMBER))
         cacheInvalidator.evictGroupViews(group.id)
         val members = groupMemberRepository.findByIdGroupId(group.id)
+
+        eventPublisher.publishEvent(
+            UserAddedToGroupEvent(
+                groupId = group.id,
+                groupName = group.name,
+                addedUserId = userId,
+                membersIds = members.map { it.id }.filter { it.userId != userId }.toList(),
+            ),
+        )
+
         return toDto(group, members)
     }
 
