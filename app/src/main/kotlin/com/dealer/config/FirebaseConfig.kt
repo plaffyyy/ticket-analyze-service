@@ -13,9 +13,8 @@ import org.springframework.core.io.ResourceLoader
 @Configuration
 class FirebaseConfig(
     private val resourceLoader: ResourceLoader,
-    private val firebaseProperties: FirebaseProperties
+    private val firebaseProperties: FirebaseProperties,
 ) {
-
     @Bean("firebaseApp")
     @ConditionalOnProperty(value = ["app.firebase.enabled"], havingValue = "true")
     fun firebaseApp(): FirebaseApp {
