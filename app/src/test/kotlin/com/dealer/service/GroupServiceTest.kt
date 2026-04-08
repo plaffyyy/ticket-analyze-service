@@ -18,7 +18,6 @@ import com.dealer.repository.UserRepository
 import com.dealer.support.cache.CacheInvalidator
 import com.dealer.support.cache.CacheSupport
 import com.dealer.support.group.GroupViewFactory
-import io.micrometer.tracing.otel.bridge.OtelTracer
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -52,7 +51,7 @@ class GroupServiceTest {
             cacheSupport,
             cacheInvalidator,
             groupViewFactory,
-            eventPublisher
+            eventPublisher,
         )
 
     @BeforeEach
