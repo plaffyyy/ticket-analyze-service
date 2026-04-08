@@ -28,3 +28,10 @@ class Notification(
     @Column(name = "id", updatable = false, nullable = false)
     lateinit var id: UUID
 }
+
+data class UserAddedToGroupEvent(
+    val groupId: UUID,
+    val groupName: String,
+    val addedUserId: UUID,
+    val membersIds: List<GroupMemberId>,
+)
