@@ -8,6 +8,8 @@ import com.dealer.domain.model.BillItem
 import com.dealer.domain.model.BillItemSplit
 import com.dealer.domain.model.BillStatus
 import com.dealer.domain.model.Group
+import com.dealer.domain.model.GroupMember
+import com.dealer.domain.model.GroupMemberId
 import com.dealer.domain.model.Transaction
 import com.dealer.domain.model.TransactionStatus
 import com.dealer.domain.model.User
@@ -84,6 +86,11 @@ class BillServiceTest {
         id = bid
         status = BillStatus.OPEN
     }
+
+    private fun member(
+        groupId: UUID,
+        userId: UUID,
+    ) = GroupMember(GroupMemberId(groupId, userId))
 
     @Test
     fun `createBill throws when group missing`() {
@@ -204,29 +211,17 @@ class BillServiceTest {
     }
 
     @Test
-    fun `settleBill marks pending transactions settled`() {
+    fun `settleBill throws when bill is still open`() {
         val u = user()
         val g = group(u)
         val b = bill(g, u)
-        val tx =
-            Transaction(
-                bill = b,
-                debtor = u,
-                creditor = user(),
-                amount = BigDecimal.ONE,
-                status = TransactionStatus.PENDING,
-            ).apply { id = UUID.randomUUID() }
 
         every { billRepository.findById(b.id) } returns Optional.of(b)
         every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, u.id) } returns true
-        every { transactionRepository.findByBillId(b.id) } returns listOf(tx)
-        every { billItemRepository.findByBillId(b.id) } returns emptyList()
 
-        service.settleBill(b.id, u.id)
-
-        assertEquals(TransactionStatus.SETTLED, tx.status)
-        assertEquals(BillStatus.SETTLED, b.status)
-        verify { transactionRepository.save(tx) }
+        assertThrows<ConflictException> {
+            service.settleBill(b.id, u.id)
+        }
     }
 
     @Test
@@ -280,6 +275,7 @@ class BillServiceTest {
 
         every { billRepository.findById(b.id) } returns Optional.of(b)
         every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, requester.id) } returns true
+        every { groupMemberRepository.findByIdGroupId(g.id) } returns listOf(member(g.id, requester.id), member(g.id, splitUser.id))
         every { billItemRepository.findById(item.id) } returns Optional.of(item)
         every { billItemRepository.findByBillId(b.id) } returns listOf(item)
         every { billItemSplitRepository.findByItemId(item.id) } returns listOf(split)
@@ -320,6 +316,7 @@ class BillServiceTest {
         every { billItemSplitRepository.deleteByItemId(any()) } returns Unit
         every { billItemRepository.findAllById(any()) } returns emptyList()
         every { userRepository.findAllById(any()) } returns listOf(u)
+        every { groupMemberRepository.findByIdGroupId(g.id) } returns listOf(member(g.id, u.id))
 
         assertThrows<NotFoundException> {
             service.setSplits(
@@ -348,6 +345,7 @@ class BillServiceTest {
         every { billItemSplitRepository.deleteByItemId(item.id) } returns Unit
         every { billItemRepository.findAllById(listOf(item.id)) } returns listOf(item)
         every { userRepository.findAllById(listOf(missingUserId)) } returns emptyList()
+        every { groupMemberRepository.findByIdGroupId(g.id) } returns listOf(member(g.id, requester.id))
 
         assertThrows<NotFoundException> {
             service.setSplits(
@@ -372,6 +370,8 @@ class BillServiceTest {
         every { billItemSplitRepository.deleteByItemId(item.id) } returns Unit
         every { billItemRepository.findAllById(listOf(item.id)) } returns listOf(item)
         every { userRepository.findAllById(any<List<UUID>>()) } returns listOf(debtor, creditor)
+        every { groupMemberRepository.findByIdGroupId(g.id) } returns
+            listOf(member(g.id, requester.id), member(g.id, debtor.id), member(g.id, creditor.id))
         every { billItemSplitRepository.save(any()) } answers { firstArg() }
 
         service.setSplits(
@@ -410,25 +410,71 @@ class BillServiceTest {
     }
 
     @Test
-    fun `settleBill updates only pending transactions`() {
+    fun `spinWinner stores selected user`() {
         val requester = user()
+        val other = user()
         val g = group(requester)
         val b = bill(g, requester)
-        val pending =
-            Transaction(bill = b, debtor = requester, creditor = user(), amount = BigDecimal.ONE, status = TransactionStatus.PENDING)
-                .apply { id = UUID.randomUUID() }
-        val settled =
-            Transaction(bill = b, debtor = requester, creditor = user(), amount = BigDecimal.TEN, status = TransactionStatus.SETTLED)
-                .apply { id = UUID.randomUUID() }
-
         every { billRepository.findById(b.id) } returns Optional.of(b)
         every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, requester.id) } returns true
-        every { transactionRepository.findByBillId(b.id) } returns listOf(pending, settled)
+        every { groupMemberRepository.findByIdGroupId(g.id) } returns listOf(member(g.id, requester.id), member(g.id, other.id))
+        every { userRepository.findAllById(any<List<UUID>>()) } returns listOf(requester, other)
+
+        val spin = service.spinWinner(b.id, requester.id)
+
+        assertEquals(b.spunWinner?.id, spin.winnerId)
+        verify { billRepository.save(b) }
+    }
+
+    @Test
+    fun `markPaidByWinner creates pending reimbursements and updates status`() {
+        val winner = user()
+        val debtor = user()
+        val g = group(winner)
+        val b = bill(g, winner).apply { spunWinner = winner }
+        val item = BillItem(bill = b, name = "pizza", price = BigDecimal("12.00"), quantity = 1).apply { id = UUID.randomUUID() }
+        val winnerSplit = BillItemSplit(item = item, user = winner, shareAmount = BigDecimal("2.00")).apply { id = UUID.randomUUID() }
+        val debtorSplit = BillItemSplit(item = item, user = debtor, shareAmount = BigDecimal("10.00")).apply { id = UUID.randomUUID() }
+
+        every { billRepository.findById(b.id) } returns Optional.of(b)
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, winner.id) } returns true
+        every { groupMemberRepository.findByIdGroupId(g.id) } returns listOf(member(g.id, winner.id), member(g.id, debtor.id))
+        every { billItemRepository.findByBillId(b.id) } returns listOf(item)
+        every { billItemSplitRepository.findByItemIdIn(listOf(item.id)) } returns listOf(winnerSplit, debtorSplit)
+        every { transactionRepository.existsByBillIdAndStatus(b.id, TransactionStatus.PENDING) } returns true
+        every { userRepository.findById(debtor.id) } returns Optional.of(debtor)
+        every { billItemRepository.findByBillId(b.id) } returns listOf(item)
+
+        service.markPaidByWinner(b.id, winner.id)
+
+        assertEquals(BillStatus.PAID_BY_WINNER, b.status)
+        verify { transactionRepository.save(match { it.debtor.id == debtor.id && it.creditor.id == winner.id }) }
+    }
+
+    @Test
+    fun `settleTransaction by debtor finalizes bill when last pending is paid`() {
+        val winner = user()
+        val debtor = user()
+        val g = group(winner)
+        val b = bill(g, winner).apply { status = BillStatus.PAID_BY_WINNER }
+        val tx =
+            Transaction(
+                bill = b,
+                debtor = debtor,
+                creditor = winner,
+                amount = BigDecimal("10.00"),
+                status = TransactionStatus.PENDING,
+            ).apply { id = UUID.randomUUID() }
+
+        every { billRepository.findById(b.id) } returns Optional.of(b)
+        every { groupMemberRepository.existsByIdGroupIdAndIdUserId(g.id, debtor.id) } returns true
+        every { transactionRepository.findByIdAndBillId(tx.id, b.id) } returns tx
+        every { transactionRepository.existsByBillIdAndStatus(b.id, TransactionStatus.PENDING) } returns false
         every { billItemRepository.findByBillId(b.id) } returns emptyList()
 
-        service.settleBill(b.id, requester.id)
+        service.settleTransaction(b.id, tx.id, debtor.id)
 
-        verify(exactly = 1) { transactionRepository.save(pending) }
-        verify(exactly = 0) { transactionRepository.save(settled) }
+        assertEquals(TransactionStatus.SETTLED, tx.status)
+        assertEquals(BillStatus.SETTLED, b.status)
     }
 }

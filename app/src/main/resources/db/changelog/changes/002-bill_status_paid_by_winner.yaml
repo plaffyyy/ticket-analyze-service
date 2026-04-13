@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-bill-status-paid-by-winner
+      author: ko.zimin
+      changes:
+        - sqlFile:
+            path: ../sql/002-bill_status_paid_by_winner.sql
+            relativeToChangelogFile: true
