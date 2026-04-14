@@ -13,6 +13,18 @@ import java.util.UUID
 interface TransactionRepository : JpaRepository<Transaction, UUID> {
     fun findByBillId(billId: UUID): List<Transaction>
 
+    fun findByIdAndBillId(
+        id: UUID,
+        billId: UUID,
+    ): Transaction?
+
+    fun existsByBillIdAndStatus(
+        billId: UUID,
+        status: TransactionStatus,
+    ): Boolean
+
+    fun deleteByBillId(billId: UUID)
+
     @Query("SELECT t FROM Transaction t WHERE t.debtor.id = :userId OR t.creditor.id = :userId")
     fun findByUserId(
         @Param("userId") userId: UUID,

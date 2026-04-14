@@ -1,3 +1,5 @@
 databaseChangeLog:
   - include:
       file: db/changelog/changes/001-init_schema.yaml
+  - include:
+      file: db/changelog/changes/002-bill_status_paid_by_winner.yaml

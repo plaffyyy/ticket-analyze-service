@@ -41,6 +41,7 @@ data class BillSplitsRequest(
     data class SplitEntry(
         val itemId: UUID,
         val userId: UUID,
+        @field:DecimalMin("0.01")
         val shareAmount: BigDecimal,
     )
 }

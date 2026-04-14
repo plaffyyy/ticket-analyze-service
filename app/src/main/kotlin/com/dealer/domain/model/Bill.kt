@@ -7,6 +7,7 @@ import java.util.UUID
 
 enum class BillStatus {
     OPEN,
+    PAID_BY_WINNER,
     SETTLED,
     PROCESSING_OCR,
     ;
@@ -14,6 +15,7 @@ enum class BillStatus {
     fun toDbValue(): String =
         when (this) {
             OPEN -> "open"
+            PAID_BY_WINNER -> "paid_by_winner"
             SETTLED -> "settled"
             PROCESSING_OCR -> "processing_ocr"
         }
@@ -27,6 +29,7 @@ class BillStatusConverter : AttributeConverter<BillStatus, String> {
         dbData?.let {
             when (it) {
                 "open" -> BillStatus.OPEN
+                "paid_by_winner" -> BillStatus.PAID_BY_WINNER
                 "settled" -> BillStatus.SETTLED
                 "processing_ocr" -> BillStatus.PROCESSING_OCR
                 else -> throw IllegalArgumentException("Unknown BillStatus: $it")
