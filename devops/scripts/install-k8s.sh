@@ -41,7 +41,33 @@ fi
 log "Installing base packages..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y curl ca-certificates gnupg apt-transport-https jq tar
+apt-get install -y curl ca-certificates gnupg apt-transport-https jq tar util-linux
+
+# ---------- 1b. Swap (OOM / SSH resilience on small nodes) ----------
+SWAP_FILE="${SWAP_FILE:-/swapfile}"
+SWAP_SIZE_GB="${SWAP_SIZE_GB:-4}"
+if ! swapon --show 2>/dev/null | grep -qF "$SWAP_FILE"; then
+  if [[ ! -f "$SWAP_FILE" ]]; then
+    log "Creating ${SWAP_SIZE_GB}G swap at ${SWAP_FILE}..."
+    if ! fallocate -l "${SWAP_SIZE_GB}G" "$SWAP_FILE" 2>/dev/null; then
+      log "fallocate failed; using dd (slow)..."
+      dd if=/dev/zero of="$SWAP_FILE" bs=1M "count=$((SWAP_SIZE_GB * 1024))" status=progress
+    fi
+    chmod 600 "$SWAP_FILE"
+    mkswap "$SWAP_FILE"
+  fi
+  swapon "$SWAP_FILE"
+fi
+if ! grep -qF "$SWAP_FILE" /etc/fstab; then
+  echo "$SWAP_FILE none swap sw 0 0" >>/etc/fstab
+fi
+install -d -m 755 /etc/sysctl.d
+cat >/etc/sysctl.d/99-k8s-node-swap.conf <<'EOF'
+# Prefer RAM; allow swap under pressure (avoids total lockup on 4G nodes).
+vm.swappiness=10
+EOF
+sysctl --system >/dev/null || sysctl -p /etc/sysctl.d/99-k8s-node-swap.conf >/dev/null || true
+log "Swap: $(swapon --show | tr '\n' ' ')"
 
 # ---------- 2. k3s ----------
 if ! command -v k3s >/dev/null 2>&1; then
@@ -82,6 +108,36 @@ if ! command -v kubectl >/dev/null 2>&1; then
   ln -sf /usr/local/bin/k3s /usr/local/bin/kubectl
 fi
 export PATH=/usr/local/bin:$PATH
+
+# ---------- 2b. Kubelet resource reservations (single-node ~4G RAM / 2 vCPU) ----------
+# Leaves headroom for k3s, containerd, sshd; tune if you resize the VM.
+K3S_CONF_DIR="/etc/rancher/k3s"
+K3S_CONF="${K3S_CONF_DIR}/config.yaml"
+RESERVED_MARKER="# kubelet-reserved (install-k8s.sh)"
+if [[ ! -f "$K3S_CONF" ]] || ! grep -qF "$RESERVED_MARKER" "$K3S_CONF" 2>/dev/null; then
+  mkdir -p "$K3S_CONF_DIR"
+  {
+    echo "$RESERVED_MARKER"
+    cat <<'EOF'
+kubelet-arg:
+  - "kube-reserved=cpu=150m,memory=384Mi"
+  - "system-reserved=cpu=100m,memory=384Mi"
+EOF
+  } >>"$K3S_CONF"
+  log "Appended kubelet kube-reserved/system-reserved to ${K3S_CONF}"
+  if systemctl is-active --quiet k3s 2>/dev/null; then
+    log "Restarting k3s to apply kubelet configuration..."
+    systemctl restart k3s
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    for _ in {1..60}; do
+      if k3s kubectl get nodes 2>/dev/null | grep -q ' Ready '; then
+        break
+      fi
+      sleep 5
+    done
+    k3s kubectl get nodes
+  fi
+fi
 
 # ---------- 3. Monitoring (optional, only if values file exists on this host) ----------
 if [[ -f "$VALUES_FILE" ]]; then

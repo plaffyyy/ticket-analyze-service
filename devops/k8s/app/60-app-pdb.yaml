@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: ticket-analyze-service
     color: blue
 spec:
-  minAvailable: 2
+  minAvailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: ticket-analyze-service
@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/name: ticket-analyze-service
     color: green
 spec:
-  minAvailable: 2
+  minAvailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: ticket-analyze-service
