@@ -1,0 +1,63 @@
+# kube-prometheus-stack: Prometheus + Grafana + Alertmanager (+ node-exporter, kube-state-metrics)
+# k3s: control-plane metrics endpoints are not like kubeadm; disable broken scrapes
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    retention: 2d
+    scrapeInterval: 30s
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1536Mi
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+
+grafana:
+  adminPassword: admin # replaces after first login
+  persistence:
+    enabled: false
+  service:
+    type: NodePort
+    nodePort: 30030
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

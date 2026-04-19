@@ -1,0 +1,29 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ticket-analyze-service-blue
+  namespace: dealer
+  labels:
+    app.kubernetes.io/name: ticket-analyze-service
+    color: blue
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ticket-analyze-service
+      color: blue
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ticket-analyze-service-green
+  namespace: dealer
+  labels:
+    app.kubernetes.io/name: ticket-analyze-service
+    color: green
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ticket-analyze-service
+      color: green
