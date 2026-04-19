@@ -1,37 +1,29 @@
 name: Publish Docker image
 
-# After Check succeeds on main: push :snapshot only.
-# On GitHub Release published: push image :<tag> and deploy to server over SSH.
+# main: push :snapshot (+ :sha-<full_sha> for reuse). No full rebuild if that commit already exists in GHCR.
+# release: retag existing :sha-<commit> to :<version> when the tag points at a commit we already built; else build.
 on:
-  workflow_run:
-    workflows:
-      - Check
-    types:
-      - completed
+  push:
+    branches:
+      - main
   release:
     types:
       - published
 
 jobs:
   push-image:
-    name: Build and push
+    name: Build or retag snapshot
     runs-on: ubuntu-latest
     concurrency:
-      group: docker-br-${{ github.event.workflow_run.head_branch }}-${{ github.event.workflow_run.head_sha }}
+      group: docker-main-${{ github.sha }}
       cancel-in-progress: true
-    if: |
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main'
+    if: github.event_name == 'push'
     permissions:
       contents: read
       packages: write
     steps:
-      - name: Checkout at CI commit
+      - name: Checkout at push commit
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -43,18 +35,31 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Image name and tags
+      - name: Image name and digest tag
         id: meta
         run: |
           IMAGE="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
-          echo "tags=${IMAGE}:snapshot" >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=sha-${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+      - name: Reuse existing image for this commit or build
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          SHA_TAG: ${{ steps.meta.outputs.sha_tag }}
+        run: |
+          set -euo pipefail
+          SRC="${IMAGE}:${SHA_TAG}"
+          if docker buildx imagetools inspect "${SRC}" >/dev/null 2>&1; then
+            echo "Image ${SRC} already exists — updating :snapshot pointer only."
+            docker buildx imagetools create -t "${IMAGE}:snapshot" "${SRC}"
+          else
+            echo "No image for this commit yet — building and pushing."
+            docker buildx build \
+              --push \
+              --tag "${IMAGE}:snapshot" \
+              --tag "${SRC}" \
+              .
+          fi
 
   release-build-push-deploy:
     name: Release image, deploy, verify
@@ -75,10 +80,11 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name }}
 
-      - name: Image name and release tag
+      - name: Image name, release tag, commit SHA
         run: |
           echo "IMAGE_LOWER=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
           echo "RELEASE_TAG=${{ github.event.release.tag_name }}" >> "$GITHUB_ENV"
+          echo "COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -90,14 +96,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push release image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ env.IMAGE_LOWER }}:${{ env.RELEASE_TAG }}
+      - name: Reuse :sha-<commit> or build release image
+        run: |
+          set -euo pipefail
+          SRC="${IMAGE_LOWER}:sha-${COMMIT_SHA}"
+          DST="${IMAGE_LOWER}:${RELEASE_TAG}"
+          if docker buildx imagetools inspect "${SRC}" >/dev/null 2>&1; then
+            echo "Reusing ${SRC} → ${DST}"
+            docker buildx imagetools create -t "${DST}" "${SRC}"
+          else
+            echo "No ${SRC} in registry — building ${DST}"
+            docker buildx build \
+              --push \
+              --tag "${DST}" \
+              --tag "${SRC}" \
+              .
+          fi
 
-      - name: Configure SSH
+      - name: Check deploy configuration
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
         run: |
@@ -109,25 +125,32 @@ jobs:
             echo "Missing repository variable DEPLOY_HOST (VM IP or hostname)" >&2
             exit 1
           fi
+
+      - name: Start ssh-agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
           mkdir -p ~/.ssh
-          printf '%b' "${SSH_KEY}" > ~/.ssh/deploy_ed25519
-          chmod 600 ~/.ssh/deploy_ed25519
+          chmod 700 ~/.ssh
           ssh-keyscan -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Deploy on server
         run: |
           U="${DEPLOY_USER:-ubuntu}"
-          scp -i ~/.ssh/deploy_ed25519 -o IdentitiesOnly=yes \
+          scp -o IdentitiesOnly=yes \
             devops/scripts/deploy-release.sh \
             "${U}@${DEPLOY_HOST}:/home/ubuntu/scripts/deploy-release.sh"
-          ssh -i ~/.ssh/deploy_ed25519 -o IdentitiesOnly=yes \
+          ssh -o IdentitiesOnly=yes \
             "${U}@${DEPLOY_HOST}" \
             "chmod +x /home/ubuntu/scripts/deploy-release.sh && export IMAGE_REPO='${IMAGE_LOWER}' && bash /home/ubuntu/scripts/deploy-release.sh '${RELEASE_TAG}'"
 
       - name: Verify live workload uses new image
         run: |
           U="${DEPLOY_USER:-ubuntu}"
-          ssh -i ~/.ssh/deploy_ed25519 -o IdentitiesOnly=yes \
+          ssh -o IdentitiesOnly=yes \
             "${U}@${DEPLOY_HOST}" bash -s <<REMOTE
           set -euo pipefail
           TAG='${RELEASE_TAG}'
