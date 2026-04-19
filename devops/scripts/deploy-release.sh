@@ -6,8 +6,8 @@
 #
 # Steps:
 #   1. Detects which color is currently "live" (selected by the main Service).
-#   2. Scales the OTHER color to 3 replicas and points it at the new image tag.
-#   3. Waits for the new color to become Ready.
+#   2. Points the OTHER color at the new image tag; scales it to 1 replica, waits Ready, smoke-test.
+#   3. Scales that color to APP_REPLICAS and waits Ready (avoids 2×N JVMs on one small node during rollout).
 #   4. Flips the main Service selector to the new color.
 #   5. Scales the old color down to 0.
 #
@@ -15,6 +15,7 @@ set -euo pipefail
 
 NS=dealer
 SVC=ticket-analyze-service
+APP_REPLICAS="${APP_REPLICAS:-2}"
 IMAGE_REPO="${IMAGE_REPO:-}"
 TAG="${1:-}"
 
@@ -45,10 +46,10 @@ DEPLOY_CURR="${SVC}-${CURRENT}"
 log "Live color=${CURRENT}. Deploying new image to ${NEXT}: ${IMAGE}"
 
 kubectl -n "$NS" set image "deployment/${DEPLOY_NEXT}" "app=${IMAGE}"
-kubectl -n "$NS" scale "deployment/${DEPLOY_NEXT}" --replicas=3
+kubectl -n "$NS" scale "deployment/${DEPLOY_NEXT}" --replicas=1
 
-log "Waiting for ${NEXT} rollout..."
-kubectl -n "$NS" rollout status "deployment/${DEPLOY_NEXT}" --timeout=5m
+log "Waiting for first ${NEXT} replica..."
+kubectl -n "$NS" rollout status "deployment/${DEPLOY_NEXT}" --timeout=8m
 
 log "Smoke-test ${NEXT} via ClusterIP..."
 kubectl -n "$NS" run curl-smoke --rm -i --restart=Never --image=curlimages/curl:8.8.0 -- \
@@ -57,6 +58,10 @@ kubectl -n "$NS" run curl-smoke --rm -i --restart=Never --image=curlimages/curl:
     kubectl -n "$NS" scale "deployment/${DEPLOY_NEXT}" --replicas=0
     exit 1
   }
+
+log "Scaling ${NEXT} to production replica count (${APP_REPLICAS})..."
+kubectl -n "$NS" scale "deployment/${DEPLOY_NEXT}" --replicas="${APP_REPLICAS}"
+kubectl -n "$NS" rollout status "deployment/${DEPLOY_NEXT}" --timeout=12m
 
 log "Flipping Service ${SVC} selector: ${CURRENT} -> ${NEXT}"
 kubectl -n "$NS" patch svc "$SVC" --type merge \

@@ -1,5 +1,7 @@
 # Active service: the load balancer across the currently-active color.
 # Switch blue->green by patching `spec.selector.color`.
+# `kubectl apply -f` this file resets selector.color to the value below (bootstrap default: blue).
+# After a release, live color may differ — patch the Service or re-run deploy-release.sh if traffic breaks.
 apiVersion: v1
 kind: Service
 metadata:

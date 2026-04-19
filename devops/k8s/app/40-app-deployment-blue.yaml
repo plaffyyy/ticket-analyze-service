@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/managed-by: kubectl
     color: blue
 spec:
-  replicas: 3
+  replicas: 2
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
@@ -72,6 +72,7 @@ spec:
               port: http
             failureThreshold: 30
             periodSeconds: 5
+            timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
