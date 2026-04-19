@@ -1,0 +1,32 @@
+# Discovered by kube-prometheus-stack (serviceMonitorSelector matchLabels release=monitoring).
+# Scrapes both blue and green pod services because both expose the http port.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ticket-analyze-service
+  namespace: dealer
+  labels:
+    release: monitoring
+    app.kubernetes.io/name: ticket-analyze-service
+    app.kubernetes.io/part-of: dealer
+spec:
+  namespaceSelector:
+    matchNames:
+      - dealer
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ticket-analyze-service
+      app.kubernetes.io/component: backend
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 30s
+      scrapeTimeout: 10s
+      relabelings:
+        # Keep color label so you can split blue vs green in Grafana.
+        - sourceLabels: [__meta_kubernetes_service_label_color]
+          targetLabel: color
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace

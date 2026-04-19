@@ -6,3 +6,13 @@
 build
 
 .kotlin
+
+# Terraform (секреты и локальные артефакты)
+devops/terraform/.terraform/
+devops/terraform/*.tfstate
+devops/terraform/*.tfstate.*
+devops/terraform/tfplan
+devops/terraform/tfplan-recreate
+devops/terraform/terraform.tfvars
+devops/terraform/crash.log
+devops/terraform/crash.*.log

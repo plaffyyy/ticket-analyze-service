@@ -1,0 +1,63 @@
+# Active service: the load balancer across the currently-active color.
+# Switch blue->green by patching `spec.selector.color`.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ticket-analyze-service
+  namespace: dealer
+  labels:
+    app.kubernetes.io/name: ticket-analyze-service
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: dealer
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: ticket-analyze-service
+    color: blue
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30080
+---
+# Per-color service (debug/canary): hits blue pods only.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ticket-analyze-service-blue
+  namespace: dealer
+  labels:
+    app.kubernetes.io/name: ticket-analyze-service
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: dealer
+    color: blue
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ticket-analyze-service
+    color: blue
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Per-color service (debug/canary): hits green pods only.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ticket-analyze-service-green
+  namespace: dealer
+  labels:
+    app.kubernetes.io/name: ticket-analyze-service
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: dealer
+    color: green
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ticket-analyze-service
+    color: green
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

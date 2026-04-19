@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-analyze-service-green
+  namespace: dealer
+  labels:
+    app.kubernetes.io/name: ticket-analyze-service
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: dealer
+    app.kubernetes.io/managed-by: kubectl
+    color: green
+spec:
+  replicas: 0
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ticket-analyze-service
+      color: green
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ticket-analyze-service
+        app.kubernetes.io/instance: ticket-analyze-service
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/part-of: dealer
+        app: ticket-analyze-service
+        color: green
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8080"
+    spec:
+      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ticket-analyze-service
+              color: green
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: ticket-analyze-service
+                    color: green
+      containers:
+        - name: app
+          image: ghcr.io/plaffyyy/ticket-analyze-service:snapshot
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: ticket-analyze-service-config
+            - secretRef:
+                name: ticket-analyze-service-secrets
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]

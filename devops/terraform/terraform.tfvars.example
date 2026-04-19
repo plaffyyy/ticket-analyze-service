@@ -1,0 +1,8 @@
+yc_cloud_id   = "b1_REPLACE_ME_CLOUD_ID"
+yc_folder_id  = "b1_REPLACE_ME_FOLDER_ID"
+yc_zone      = "ru-central1-a"
+
+yc_token = ""
+
+vm_cores     = 2
+vm_memory_gb = 4
