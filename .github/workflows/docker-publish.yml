@@ -140,17 +140,17 @@ jobs:
       - name: Deploy on server
         run: |
           U="${DEPLOY_USER:-ubuntu}"
-          scp -o IdentitiesOnly=yes \
+          scp \
             devops/scripts/deploy-release.sh \
             "${U}@${DEPLOY_HOST}:/home/ubuntu/scripts/deploy-release.sh"
-          ssh -o IdentitiesOnly=yes \
+          ssh \
             "${U}@${DEPLOY_HOST}" \
             "chmod +x /home/ubuntu/scripts/deploy-release.sh && export IMAGE_REPO='${IMAGE_LOWER}' && bash /home/ubuntu/scripts/deploy-release.sh '${RELEASE_TAG}'"
 
       - name: Verify live workload uses new image
         run: |
           U="${DEPLOY_USER:-ubuntu}"
-          ssh -o IdentitiesOnly=yes \
+          ssh \
             "${U}@${DEPLOY_HOST}" bash -s <<REMOTE
           set -euo pipefail
           TAG='${RELEASE_TAG}'
