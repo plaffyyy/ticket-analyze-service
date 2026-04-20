@@ -14,6 +14,7 @@ import com.dealer.exception.UnauthorizedException
 import com.dealer.repository.RefreshTokenRepository
 import com.dealer.repository.UserRepository
 import com.dealer.security.JwtProvider
+import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -28,9 +29,12 @@ class AuthService(
     private val passwordEncoder: PasswordEncoder,
     private val jwtProvider: JwtProvider,
 ) {
+    private val logger = LoggerFactory.getLogger(AuthService::class.java)
+
     @Transactional
     fun register(request: RegisterRequest): AuthResponse {
         val normalizedEmail = request.email.trim().lowercase()
+        logger.debug("Registering user with email=$normalizedEmail")
         if (userRepository.existsByEmail(normalizedEmail)) {
             throw ConflictException("Email already in use")
         }
@@ -41,6 +45,7 @@ class AuthService(
                 passwordHash = passwordEncoder.encode(request.password),
             )
         val savedUser = userRepository.save(user)
+        logger.info("User registered: userId=${savedUser.id}, email=${savedUser.email}")
         return issueTokens(savedUser)
     }
 
