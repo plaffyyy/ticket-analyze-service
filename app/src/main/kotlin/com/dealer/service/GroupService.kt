@@ -49,7 +49,9 @@ class GroupService(
         ownerId: UUID,
         request: CreateGroupRequest,
     ): GroupDto {
-        logger.debug("Creating group for ownerId=$ownerId, name='${request.name.trim()}', currency='${request.currency.trim().uppercase()}'")
+        logger.debug(
+            "Creating group for ownerId=$ownerId, name='${request.name.trim()}', currency='${request.currency.trim().uppercase()}'",
+        )
         val owner = userRepository.findById(ownerId).orElseThrow { NotFoundException("User not found") }
         val group =
             Group(
