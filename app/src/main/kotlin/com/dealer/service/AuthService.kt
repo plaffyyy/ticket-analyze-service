@@ -11,6 +11,7 @@ import com.dealer.domain.model.User
 import com.dealer.exception.ConflictException
 import com.dealer.exception.NotFoundException
 import com.dealer.exception.UnauthorizedException
+import com.dealer.metrics.AppMetrics
 import com.dealer.repository.RefreshTokenRepository
 import com.dealer.repository.UserRepository
 import com.dealer.security.JwtProvider
@@ -28,6 +29,7 @@ class AuthService(
     private val refreshTokenRepository: RefreshTokenRepository,
     private val passwordEncoder: PasswordEncoder,
     private val jwtProvider: JwtProvider,
+    private val appMetrics: AppMetrics,
 ) {
     private val logger = LoggerFactory.getLogger(AuthService::class.java)
 
@@ -45,6 +47,7 @@ class AuthService(
                 passwordHash = passwordEncoder.encode(request.password),
             )
         val savedUser = userRepository.save(user)
+        appMetrics.incrementUserRegistrations()
         logger.info("User registered: userId=${savedUser.id}, email=${savedUser.email}")
         return issueTokens(savedUser)
     }

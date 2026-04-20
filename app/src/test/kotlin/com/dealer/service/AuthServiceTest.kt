@@ -8,6 +8,7 @@ import com.dealer.domain.model.User
 import com.dealer.exception.ConflictException
 import com.dealer.exception.NotFoundException
 import com.dealer.exception.UnauthorizedException
+import com.dealer.metrics.AppMetrics
 import com.dealer.repository.RefreshTokenRepository
 import com.dealer.repository.UserRepository
 import com.dealer.security.JwtProvider
@@ -34,6 +35,7 @@ class AuthServiceTest {
     private val refreshTokenRepository = mockk<RefreshTokenRepository>(relaxed = true)
     private val passwordEncoder = mockk<PasswordEncoder>()
     private val jwtProvider = mockk<JwtProvider>()
+    private val appMetrics = mockk<AppMetrics>(relaxed = true)
 
     private val service =
         AuthService(
@@ -41,6 +43,7 @@ class AuthServiceTest {
             refreshTokenRepository,
             passwordEncoder,
             jwtProvider,
+            appMetrics,
         )
 
     private fun newUser(

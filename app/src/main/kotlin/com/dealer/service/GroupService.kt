@@ -15,6 +15,7 @@ import com.dealer.domain.model.UserAddedToGroupEvent
 import com.dealer.exception.ConflictException
 import com.dealer.exception.ForbiddenException
 import com.dealer.exception.NotFoundException
+import com.dealer.metrics.AppMetrics
 import com.dealer.repository.GroupMemberRepository
 import com.dealer.repository.GroupRepository
 import com.dealer.repository.UserRepository
@@ -37,6 +38,7 @@ class GroupService(
     private val cacheInvalidator: CacheInvalidator,
     private val groupViewFactory: GroupViewFactory,
     private val eventPublisher: ApplicationEventPublisher,
+    private val appMetrics: AppMetrics,
 ) {
     private val logger = LoggerFactory.getLogger(GroupService::class.java)
     private val secureRandom = SecureRandom()
@@ -60,6 +62,7 @@ class GroupService(
         groupMemberRepository.save(
             GroupMember(id = GroupMemberId(group.id, ownerId), role = MemberRole.OWNER),
         )
+        appMetrics.incrementGroupCreations()
         logger.info("Group created: groupId=${group.id}, ownerId=$ownerId, currency=${group.currency}")
         return toDto(group, listOf(GroupMember(id = GroupMemberId(group.id, ownerId), role = MemberRole.OWNER)))
     }
@@ -93,6 +96,7 @@ class GroupService(
         groupRepository.save(group)
         cacheInvalidator.evictGroupViews(groupId)
         val members = groupMemberRepository.findByIdGroupId(groupId)
+        appMetrics.incrementGroupUpdates()
         logger.info("Group updated: groupId=$groupId, requesterId=$requesterId, name='${group.name}', currency='${group.currency}'")
         return toDto(group, members)
     }

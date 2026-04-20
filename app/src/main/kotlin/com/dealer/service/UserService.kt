@@ -7,6 +7,7 @@ import com.dealer.domain.dto.UserDto
 import com.dealer.domain.model.Device
 import com.dealer.domain.model.Platform
 import com.dealer.exception.NotFoundException
+import com.dealer.metrics.AppMetrics
 import com.dealer.repository.DeviceRepository
 import com.dealer.repository.UserRepository
 import com.dealer.support.cache.CacheInvalidator
@@ -22,6 +23,7 @@ class UserService(
     private val deviceRepository: DeviceRepository,
     private val cacheSupport: CacheSupport,
     private val cacheInvalidator: CacheInvalidator,
+    private val appMetrics: AppMetrics,
 ) {
     private val logger = LoggerFactory.getLogger(UserService::class.java)
 
@@ -50,6 +52,7 @@ class UserService(
         request.currencyDefault?.trim()?.let { user.currencyDefault = it }
         val updatedUser = userRepository.save(user)
         cacheInvalidator.evictUserViews(userId)
+        appMetrics.incrementUserProfileUpdates()
         logger.info("User profile updated: userId=$userId, name='${updatedUser.name}', currencyDefault='${updatedUser.currencyDefault}'")
         return updatedUser.toDto()
     }

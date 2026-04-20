@@ -5,6 +5,7 @@ import com.dealer.domain.dto.UpdateProfileRequest
 import com.dealer.domain.model.Platform
 import com.dealer.domain.model.User
 import com.dealer.exception.NotFoundException
+import com.dealer.metrics.AppMetrics
 import com.dealer.repository.DeviceRepository
 import com.dealer.repository.GroupMemberRepository
 import com.dealer.repository.UserRepository
@@ -24,10 +25,11 @@ class UserServiceTest {
     private val userRepository = mockk<UserRepository>()
     private val deviceRepository = mockk<DeviceRepository>(relaxed = true)
     private val groupMemberRepository = mockk<GroupMemberRepository>(relaxed = true)
+    private val appMetrics = mockk<AppMetrics>(relaxed = true)
     private val cacheManager = ConcurrentMapCacheManager()
     private val cacheSupport = CacheSupport(cacheManager)
     private val cacheInvalidator = CacheInvalidator(cacheSupport, groupMemberRepository)
-    private val service = UserService(userRepository, deviceRepository, cacheSupport, cacheInvalidator)
+    private val service = UserService(userRepository, deviceRepository, cacheSupport, cacheInvalidator, appMetrics)
 
     private fun user(id: UUID = UUID.randomUUID()) = User("N", "e@e.com", "h").apply { this.id = id }
 
