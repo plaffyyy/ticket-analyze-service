@@ -15,12 +15,14 @@ import com.dealer.domain.model.UserAddedToGroupEvent
 import com.dealer.exception.ConflictException
 import com.dealer.exception.ForbiddenException
 import com.dealer.exception.NotFoundException
+import com.dealer.metrics.AppMetrics
 import com.dealer.repository.GroupMemberRepository
 import com.dealer.repository.GroupRepository
 import com.dealer.repository.UserRepository
 import com.dealer.support.cache.CacheInvalidator
 import com.dealer.support.cache.CacheSupport
 import com.dealer.support.group.GroupViewFactory
+import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -36,7 +38,9 @@ class GroupService(
     private val cacheInvalidator: CacheInvalidator,
     private val groupViewFactory: GroupViewFactory,
     private val eventPublisher: ApplicationEventPublisher,
+    private val appMetrics: AppMetrics,
 ) {
+    private val logger = LoggerFactory.getLogger(GroupService::class.java)
     private val secureRandom = SecureRandom()
     private val base62Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
@@ -45,6 +49,9 @@ class GroupService(
         ownerId: UUID,
         request: CreateGroupRequest,
     ): GroupDto {
+        logger.debug(
+            "Creating group for ownerId=$ownerId, name='${request.name.trim()}', currency='${request.currency.trim().uppercase()}'",
+        )
         val owner = userRepository.findById(ownerId).orElseThrow { NotFoundException("User not found") }
         val group =
             Group(
@@ -57,6 +64,8 @@ class GroupService(
         groupMemberRepository.save(
             GroupMember(id = GroupMemberId(group.id, ownerId), role = MemberRole.OWNER),
         )
+        appMetrics.incrementGroupCreations()
+        logger.info("Group created: groupId=${group.id}, ownerId=$ownerId, currency=${group.currency}")
         return toDto(group, listOf(GroupMember(id = GroupMemberId(group.id, ownerId), role = MemberRole.OWNER)))
     }
 
@@ -76,6 +85,9 @@ class GroupService(
         requesterId: UUID,
         request: UpdateGroupRequest,
     ): GroupDto {
+        logger.debug(
+            "Updating group: groupId=$groupId, requesterId=$requesterId, hasName=${request.name != null}, hasCurrency=${request.currency != null}",
+        )
         val group = findGroupOrThrow(groupId)
         requireOwner(group, requesterId)
         request.name?.trim()?.let { group.name = it }
@@ -86,6 +98,8 @@ class GroupService(
         groupRepository.save(group)
         cacheInvalidator.evictGroupViews(groupId)
         val members = groupMemberRepository.findByIdGroupId(groupId)
+        appMetrics.incrementGroupUpdates()
+        logger.info("Group updated: groupId=$groupId, requesterId=$requesterId, name='${group.name}', currency='${group.currency}'")
         return toDto(group, members)
     }
 
@@ -98,6 +112,7 @@ class GroupService(
         requireOwner(group, requesterId)
         groupRepository.delete(group)
         cacheInvalidator.evictGroupViews(groupId)
+        logger.info("Group deleted: groupId=$groupId, ownerId=$requesterId")
     }
 
     @Transactional
@@ -118,6 +133,7 @@ class GroupService(
         code: String,
         userId: UUID,
     ): GroupDto {
+        logger.debug("Joining group by invite code for userId=$userId")
         val group =
             groupRepository
                 .findByInviteCode(code)
@@ -138,6 +154,7 @@ class GroupService(
             ),
         )
 
+        logger.info("User joined group: groupId=${group.id}, userId=$userId")
         return toDto(group, members)
     }
 

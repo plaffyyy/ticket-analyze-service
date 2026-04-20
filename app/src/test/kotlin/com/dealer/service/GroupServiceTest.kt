@@ -11,6 +11,7 @@ import com.dealer.domain.model.User
 import com.dealer.exception.ConflictException
 import com.dealer.exception.ForbiddenException
 import com.dealer.exception.NotFoundException
+import com.dealer.metrics.AppMetrics
 import com.dealer.repository.GroupMemberRepository
 import com.dealer.repository.GroupRepository
 import com.dealer.repository.TransactionRepository
@@ -42,6 +43,7 @@ class GroupServiceTest {
     private val cacheInvalidator = CacheInvalidator(cacheSupport, groupMemberRepository)
     private val groupViewFactory = GroupViewFactory(groupRepository, groupMemberRepository, userRepository, transactionRepository)
     private val eventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+    private val appMetrics = mockk<AppMetrics>(relaxed = true)
 
     private val service =
         GroupService(
@@ -52,6 +54,7 @@ class GroupServiceTest {
             cacheInvalidator,
             groupViewFactory,
             eventPublisher,
+            appMetrics,
         )
 
     @BeforeEach

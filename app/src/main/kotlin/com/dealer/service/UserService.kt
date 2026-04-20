@@ -7,10 +7,12 @@ import com.dealer.domain.dto.UserDto
 import com.dealer.domain.model.Device
 import com.dealer.domain.model.Platform
 import com.dealer.exception.NotFoundException
+import com.dealer.metrics.AppMetrics
 import com.dealer.repository.DeviceRepository
 import com.dealer.repository.UserRepository
 import com.dealer.support.cache.CacheInvalidator
 import com.dealer.support.cache.CacheSupport
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -21,7 +23,10 @@ class UserService(
     private val deviceRepository: DeviceRepository,
     private val cacheSupport: CacheSupport,
     private val cacheInvalidator: CacheInvalidator,
+    private val appMetrics: AppMetrics,
 ) {
+    private val logger = LoggerFactory.getLogger(UserService::class.java)
+
     @Transactional(readOnly = true)
     fun getCurrentUser(userId: UUID): UserDto =
         cacheSupport.getOrLoad(CacheNames.CURRENT_USER, userId) {
@@ -36,6 +41,9 @@ class UserService(
         userId: UUID,
         request: UpdateProfileRequest,
     ): UserDto {
+        logger.debug(
+            "Updating user profile: userId=$userId, hasName=${request.name != null}, hasCurrencyDefault=${request.currencyDefault != null}",
+        )
         val user =
             userRepository
                 .findById(userId)
@@ -44,6 +52,8 @@ class UserService(
         request.currencyDefault?.trim()?.let { user.currencyDefault = it }
         val updatedUser = userRepository.save(user)
         cacheInvalidator.evictUserViews(userId)
+        appMetrics.incrementUserProfileUpdates()
+        logger.info("User profile updated: userId=$userId, name='${updatedUser.name}', currencyDefault='${updatedUser.currencyDefault}'")
         return updatedUser.toDto()
     }
 
