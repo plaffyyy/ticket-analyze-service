@@ -122,9 +122,14 @@ class GroupService(
     ): InviteResponse {
         val group = findGroupOrThrow(groupId)
         requireOwner(group, requesterId)
-        group.inviteCode = generateInviteCode()
-        groupRepository.save(group)
-        cacheSupport.evict(CacheNames.GROUP, groupId)
+        if (group.inviteCode.isBlank()) {
+            group.inviteCode = generateInviteCode()
+            groupRepository.save(group)
+            cacheSupport.evict(CacheNames.GROUP, groupId)
+            logger.info("Invite code generated: groupId=$groupId, ownerId=$requesterId")
+        } else {
+            logger.debug("Invite code requested for groupId=$groupId; returning existing code")
+        }
         return InviteResponse(group.inviteCode, "dealer://groups/join/${group.inviteCode}")
     }
 

@@ -151,16 +151,14 @@ class GroupServiceTest {
     }
 
     @Test
-    fun `regenerateInvite changes code and deeplink`() {
+    fun `regenerateInvite returns existing code and deeplink`() {
         val owner = user()
         val g = group(owner)
         every { groupRepository.findById(g.id) } returns Optional.of(g)
-        every { groupRepository.existsByInviteCode(any()) } returns false
 
         val response = service.regenerateInvite(g.id, owner.id)
 
-        assertTrue(response.inviteCode.isNotBlank())
-        assertTrue(response.inviteCode != "INVITE01")
+        assertEquals("INVITE01", response.inviteCode)
         assertEquals("dealer://groups/join/${response.inviteCode}", response.deepLink)
     }
 
