@@ -97,7 +97,7 @@ class AuthService(
         return AuthResponse(
             accessToken = jwtProvider.generateAccessToken(user.id, user.email),
             refreshToken = rawRefresh,
-            user = UserDto(user.id, user.name, user.email, user.avatarUrl, user.currencyDefault),
+            user = UserDto(user.id, user.name, user.email, user.avatarUrl, user.currencyDefault, user.transferComment),
         )
     }
 

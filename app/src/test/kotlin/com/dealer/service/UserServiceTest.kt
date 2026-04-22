@@ -80,10 +80,19 @@ class UserServiceTest {
         every { userRepository.save(any()) } answers { firstArg() }
         every { groupMemberRepository.findByIdUserId(u.id) } returns emptyList()
 
-        val dto = service.updateProfile(u.id, UpdateProfileRequest(name = " New ", currencyDefault = "eur"))
+        val dto =
+            service.updateProfile(
+                u.id,
+                UpdateProfileRequest(
+                    name = " New ",
+                    currencyDefault = "eur",
+                    transferComment = "  Sberbank +7 900 000-00-00  ",
+                ),
+            )
 
         assertEquals("New", dto.name)
         assertEquals("eur", dto.currencyDefault)
+        assertEquals("Sberbank +7 900 000-00-00", dto.transferComment)
     }
 
     @Test

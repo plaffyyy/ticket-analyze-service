@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/changes/001-init_schema.yaml
   - include:
       file: db/changelog/changes/002-bill_status_paid_by_winner.yaml
+  - include:
+      file: db/changelog/changes/003-add_user_transfer_comment.yaml

@@ -9,6 +9,8 @@ data class UpdateProfileRequest(
     val name: String? = null,
     @field:Size(max = 3)
     val currencyDefault: String? = null,
+    @field:Size(max = 500)
+    val transferComment: String? = null,
 )
 
 data class FcmTokenRequest(

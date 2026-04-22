@@ -107,6 +107,7 @@ class RateLimitIntegrationTest {
                     email = "user@test.com",
                     avatarUrl = null,
                     currencyDefault = "USD",
+                    transferComment = null,
                 ),
         )
 }
