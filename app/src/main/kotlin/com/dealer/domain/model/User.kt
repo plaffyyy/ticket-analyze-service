@@ -17,6 +17,8 @@ class User(
     var avatarUrl: String? = null,
     @Column(name = "currency_default", nullable = false, length = 3)
     var currencyDefault: String = "RUB",
+    @Column(name = "transfer_comment", length = 500)
+    var transferComment: String? = null,
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: OffsetDateTime = OffsetDateTime.now(),
 ) {

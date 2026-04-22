@@ -42,7 +42,7 @@ class UserService(
         request: UpdateProfileRequest,
     ): UserDto {
         logger.debug(
-            "Updating user profile: userId=$userId, hasName=${request.name != null}, hasCurrencyDefault=${request.currencyDefault != null}",
+            "Updating user profile: userId=$userId, hasName=${request.name != null}, hasCurrencyDefault=${request.currencyDefault != null}, hasTransferComment=${request.transferComment != null}",
         )
         val user =
             userRepository
@@ -50,10 +50,14 @@ class UserService(
                 .orElseThrow { NotFoundException("User not found") }
         request.name?.trim()?.let { user.name = it }
         request.currencyDefault?.trim()?.let { user.currencyDefault = it }
+        request.transferComment?.trim()?.let { user.transferComment = it.ifBlank { null } }
         val updatedUser = userRepository.save(user)
         cacheInvalidator.evictUserViews(userId)
         appMetrics.incrementUserProfileUpdates()
-        logger.info("User profile updated: userId=$userId, name='${updatedUser.name}', currencyDefault='${updatedUser.currencyDefault}'")
+        val hasTransferComment = !updatedUser.transferComment.isNullOrBlank()
+        logger.info(
+            "User profile updated: userId=$userId, name='${updatedUser.name}', currencyDefault='${updatedUser.currencyDefault}', hasTransferComment=$hasTransferComment",
+        )
         return updatedUser.toDto()
     }
 
@@ -88,4 +92,5 @@ fun com.dealer.domain.model.User.toDto() =
         email = email,
         avatarUrl = avatarUrl,
         currencyDefault = currencyDefault,
+        transferComment = transferComment,
     )

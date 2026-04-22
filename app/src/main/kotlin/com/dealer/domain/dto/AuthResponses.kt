@@ -19,4 +19,5 @@ data class UserDto(
     val email: String,
     val avatarUrl: String?,
     val currencyDefault: String,
+    val transferComment: String?,
 )
